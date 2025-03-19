@@ -86,6 +86,45 @@ $(document).ready(function() {
             drpPurpose.appendChild(optPurpose);
         })
 
+        // Add "Others" option
+        const optOthers = document.createElement("option");
+        optOthers.value = "Others";
+        optOthers.textContent = "Others";
+        drpPurpose.appendChild(optOthers);
+        
+        // Add event listener for when purpose changes
+        drpPurpose.addEventListener("change", function() {
+            // Remove existing custom purpose input if it exists
+            const existingCustomInput = document.getElementById("customPurposeContainer");
+            if (existingCustomInput) {
+                existingCustomInput.remove();
+            }
+            
+            // If "Others" is selected, show the custom input field
+            if (this.value === "Others") {
+                const customPurposeContainer = document.createElement("div");
+                customPurposeContainer.id = "customPurposeContainer";
+                customPurposeContainer.classList.add("mb-3");
+                
+                const customPurposeLabel = document.createElement("label");
+                customPurposeLabel.textContent = "Please specify your purpose:";
+                customPurposeLabel.classList.add("form-label");
+                
+                const customPurposeInput = document.createElement("input");
+                customPurposeInput.type = "text";
+                customPurposeInput.id = "customPurpose";
+                customPurposeInput.classList.add("form-control");
+                customPurposeInput.required = true;
+                customPurposeInput.placeholder = "Enter your purpose here";
+                
+                customPurposeContainer.appendChild(customPurposeLabel);
+                customPurposeContainer.appendChild(customPurposeInput);
+                
+                // Insert after the dropdown
+                drpPurpose.parentNode.insertBefore(customPurposeContainer, drpPurpose.nextSibling);
+            }
+        });
+
         container.appendChild(drpPurpose);
     
         // // Number of copies
@@ -174,14 +213,22 @@ function submitRequest(id, request){
         formData.append(`${file.id}`, file.files[0]);
     });
 
-
     // Add null check for drpPurpose
     const purposeElement = document.querySelector("#drpPurpose");
     if (purposeElement) {
-        formData.append('purpose', purposeElement.value);
+        // Check if "Others" is selected and custom purpose input exists
+        if (purposeElement.value === "Others") {
+            const customPurposeInput = document.querySelector("#customPurpose");
+            if (customPurposeInput && customPurposeInput.value.trim()) {
+                formData.append('purpose', "Other: " + customPurposeInput.value.trim());
+            } else {
+                showToast({ message: 'Please specify your purpose.', color: '#FF0000' });
+                return;
+            }
+        } else {
+            formData.append('purpose', purposeElement.value);
+        }
     } else {
-
-
         // Use a default value or get it from request object if available
         formData.append('purpose', request?.purpose?.[0]?.description || 'General Purpose');
         console.warn("Purpose dropdown not found in DOM, using fallback value");
@@ -254,7 +301,9 @@ function submitRequest(id, request){
         }
     });
 
-}function openPaymentTab(formData, requestID){
+}
+
+function openPaymentTab(formData, requestID){
     sessionStorage.clear();
     sessionStorage.setItem("data", formData);
     return openNewTab("/request/checkout/" + requestID, 800, 800);
@@ -332,6 +381,20 @@ function validateForm() {
             isValid = false;
         }
     });
+
+    // Validate custom purpose if "Others" is selected
+    const purposeElement = document.querySelector("#drpPurpose");
+    if (purposeElement && purposeElement.value === "Others") {
+        const customPurposeInput = document.querySelector("#customPurpose");
+        if (!customPurposeInput || !customPurposeInput.value.trim()) {
+            isValid = false;
+            if (customPurposeInput) {
+                customPurposeInput.classList.add('is-invalid');
+            }
+        } else if (customPurposeInput) {
+            customPurposeInput.classList.remove('is-invalid');
+        }
+    }
 
     // Also validate profile form if it exists
     if (document.getElementById('profile-form')) {
