@@ -7,9 +7,11 @@ from django.core.exceptions import ValidationError
 class UserRegistrationForm(forms.ModelForm):
     student_number = forms.CharField(
         max_length=64,
+        required=False,  # Make it optional
         error_messages={
-            'required': 'Please enter your student number.',
-        }
+            'unique': 'This student number is already in use.',
+        },
+        help_text="Optional. Leave blank to auto-generate an ID."
     )
 
     email = forms.CharField(
@@ -30,12 +32,10 @@ class UserRegistrationForm(forms.ModelForm):
 
     def clean_student_number(self):
         student_number = self.cleaned_data.get('student_number')
-        
-        # Add any basic format validation if needed
-        # For example:
-        # if not student_number.isalnum():
-        #     raise forms.ValidationError('Student number should only contain letters and numbers.')
-        
+        # Only validate if a value is provided
+        if student_number:
+            if User.objects.filter(student_number=student_number).exists():
+                raise forms.ValidationError('This student number is already in use.')
         return student_number
 
     class Meta:
@@ -48,9 +48,7 @@ class UserRegistrationForm(forms.ModelForm):
 
         if commit == True:
             user.save()
-        return user
-
-# For modifying user form
+        return user# For modifying user form
 class UserChangeForm(forms.ModelForm):
     password = ReadOnlyPasswordHashField()
 

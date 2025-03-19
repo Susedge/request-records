@@ -5,6 +5,7 @@ import hashlib
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import base64
+from django.utils import timezone
 
 def generate_key_from_user(user_id):
     return hashlib.sha256(str(user_id).encode()).digest()
@@ -70,20 +71,30 @@ class User(AbstractBaseUser):
         (7, 'authorized person'),  # Added new option
       )
 
-      student_number = models.CharField(max_length=64, unique=True)
+      student_number = models.CharField(max_length=64, unique=True, blank=True, null=True)
       email = models.EmailField(max_length=254, unique=True)
       password = models.CharField(max_length=256)
       is_active = models.BooleanField(default=False)
       user_type = models.PositiveSmallIntegerField(choices = USER_TYPE_CHOICES, default = 0)  # Default to unspecified
 
       USERNAME_FIELD = 'email'
-      REQUIRED_FIELDS = ['student_number']
+      REQUIRED_FIELDS = []
 
       def __str__(self):
-          return self.student_number
+          return self.student_number or self.email
 
       def get_user_type_display(self):
           return dict(self.USER_TYPE_CHOICES).get(self.user_type, 'Unknown')
+      
+      def save(self, *args, **kwargs):
+          # Generate student number if not provided
+          if not self.student_number:
+              # Get the latest ID in the system and increment by 1
+              last_id = User.objects.order_by('-id').first()
+              next_id = 1 if last_id is None else last_id.id + 1
+              self.student_number = f"ID-{next_id:06d}"  # Format: ID-000001, ID-000002, etc.
+          super().save(*args, **kwargs)  
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)

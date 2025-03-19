@@ -148,6 +148,8 @@ def index(request):
             # Get the raw password before it's hashed
             raw_password = form.cleaned_data.get('password')
             
+            # Student number will be auto-generated in the save method if not provided
+            
             # Save the user
             user.save()
             
@@ -174,7 +176,7 @@ def index(request):
                 return JsonResponse({'status': False, 'message': last_error_message[1]})
     else:
         form = UserRegistrationForm()
-    return render(request, 'register.html', {'form': form})    
+    return render(request, 'register.html', {'form': form})
     
 def handle_uploaded_file(file):
     # Define the path where you want to save the file
