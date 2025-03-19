@@ -13,7 +13,8 @@ from onlinerequest.views import (
     profile,
     reference_login,
     reports,
-    admin_reports
+    admin_reports,
+    qr_upload,
 )
 
 # Define URL paths here
@@ -98,6 +99,9 @@ urlpatterns = [
     path('admin-panel/reports/', admin_reports.admin_reports, name='admin_reports'),
     path('admin-panel/reports/form/<int:template_id>/', admin_reports.admin_report_form, name='admin_report_form'),
     path('admin-panel/reports/generate/<int:template_id>/', admin_reports.admin_generate_report_pdf, name='admin_generate_report_pdf'),
+
+    # Admin Gcash upload
+    path('admin-panel/qr-upload/', qr_upload.upload_qr_code, name='upload_qr_code'),
 
     #Analytics
     path('admin-panel/analytics/', views.request_analytics, name='request_analytics'),
