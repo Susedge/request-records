@@ -7,15 +7,22 @@ import shutil
 
 @login_required
 def upload_qr_code(request):
-    # Path to the static QR code - using images instead of img
-    static_qr_path = os.path.join(settings.STATICFILES_DIRS[0], 'assets', 'images', 'gcash.jpg')
+    # Create a dedicated QR codes directory
+    qr_codes_dir = os.path.join(settings.STATICFILES_DIRS[0], 'assets', 'qr_codes')
+    os.makedirs(qr_codes_dir, exist_ok=True)
     
-    # Create directories if they don't exist
-    os.makedirs(os.path.dirname(static_qr_path), exist_ok=True)
-    
+    # Path for the specific payment method QR code
     if request.method == 'POST':
         payment_method = request.POST.get('payment_method')
         qr_image = request.FILES.get('qr_image')
+        
+        if not payment_method:
+            messages.error(request, "Payment method is required")
+            return redirect('upload_qr_code')
+            
+        # Normalize payment method name for filename (lowercase, no spaces)
+        filename = f"{payment_method.lower().replace(' ', '_')}.jpg"
+        static_qr_path = os.path.join(qr_codes_dir, filename)
         
         if qr_image:
             # Validate file size
@@ -46,12 +53,25 @@ def upload_qr_code(request):
             messages.success(request, f"QR code for {payment_method} {action_msg} successfully")
             return redirect('upload_qr_code')
     
-    # For GET request
+    # For GET request - list all available payment QR codes
+    payment_method = request.GET.get('payment_method', 'GCASH')
+    filename = f"{payment_method.lower().replace(' ', '_')}.jpg"
+    static_qr_path = os.path.join(qr_codes_dir, filename)
+    
     current_qr = None
     if os.path.exists(static_qr_path):
-        current_qr = settings.STATIC_URL + 'assets/images/gcash.jpg'
+        current_qr = f"{settings.STATIC_URL}assets/qr_codes/{filename}"
+    
+    # Get list of available payment methods from existing QR codes
+    payment_methods = []
+    if os.path.exists(qr_codes_dir):
+        for file in os.listdir(qr_codes_dir):
+            if file.endswith(('.jpg', '.jpeg', '.png')):
+                method_name = os.path.splitext(file)[0].replace('_', ' ').upper()
+                payment_methods.append(method_name)
     
     return render(request, 'admin/qr_upload.html', {
         'current_qr': current_qr,
-        'current_method': 'GCASH'  # Default value
+        'current_method': payment_method,
+        'payment_methods': payment_methods
     })

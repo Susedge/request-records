@@ -22,11 +22,11 @@
             <div id="layoutSidenav_content">
                 <main>
                     <div class="container-fluid px-4">
-                        <h1 class="mt-4">Generate Report: {{ template.name }}</h1>
+                        <h1 class="mt-4">Generate Template: {{ template.name }}</h1>
                         <div class="card mb-4">
                             <div class="card-header">
                                 <i class="fas fa-file-alt me-1"></i>
-                                Fill Report Information
+                                Fill Template Information
                             </div>
                             <div class="card-body">
                                 <form method="post" action="{% url 'admin_generate_report_pdf' template.id %}" class="form-container">
@@ -48,6 +48,10 @@
                                                     <label for="last_name" class="form-label">Last Name</label>
                                                     <input type="text" class="form-control" id="last_name" name="last_name" required>
                                                 </div>
+                                                <div class="form-group mb-3 required-field">
+                                                    <label for="suffix" class="form-label">Suffix (Jr., Sr., etc.)</label>
+                                                    <input type="text" class="form-control" id="suffix" name="suffix" placeholder="Optional">
+                                                </div>
                                                 <div class="form-group mb-3">
                                                     <label for="contact_no" class="form-label">Contact Number</label>
                                                     <div class="input-group">
@@ -66,9 +70,9 @@
                                                     <input type="text" class="form-control datepicker-input" id="entry_year_to" name="entry_year_to">
                                                 </div>
                                                 <div class="form-group mb-3">
-                                                    <label for="course" class="form-label">Course</label>
+                                                    <label for="course" class="form-label">Program</label>
                                                     <select class="form-select" id="course" name="course">
-                                                        <option value="">Select Course</option>
+                                                        <option value="">Select Program</option>
                                                         {% for course in all_courses %}
                                                             <option value="{{ course.code }}">{{ course.code }} - {{ course.description }}</option>
                                                         {% endfor %}
@@ -110,7 +114,7 @@
                                     
                                     <div class="form-buttons">
                                         <a href="{% url 'admin_reports' %}" class="btn btn-secondary">Cancel</a>
-                                        <button type="submit" class="btn btn-primary">Generate Report</button>
+                                        <button type="submit" class="btn btn-primary">Generate Template</button>
                                     </div>
                                 </form>
                             </div>

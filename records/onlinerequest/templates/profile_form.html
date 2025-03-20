@@ -39,9 +39,9 @@
                         <input type="text" id="contact-no" name="contact_no" class="form-control" required>
                     </div>
                     <div class="mb-3">
-                        <label for="course" class="form-label">Course:</label>
+                        <label for="course" class="form-label">Program:</label>
                         <select id="course" name="course" class="form-select" required>
-                            <option value="">Select Course</option>
+                            <option value="">Select Program</option>
                             {% for course in all_courses %}
                             <option value="{{ course.id }}">{{ course.code }} - {{ course.description }}</option>
                             {% endfor %}

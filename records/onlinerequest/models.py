@@ -89,11 +89,11 @@ class User(AbstractBaseUser):
       def save(self, *args, **kwargs):
           # Generate student number if not provided
           if not self.student_number:
-              # Get the latest ID in the system and increment by 1
-              last_id = User.objects.order_by('-id').first()
-              next_id = 1 if last_id is None else last_id.id + 1
-              self.student_number = f"ID-{next_id:06d}"  # Format: ID-000001, ID-000002, etc.
-          super().save(*args, **kwargs)  
+              super().save(*args, **kwargs)
+              self.student_number = f"ID-{self.id:06d}"  # Format: ID-000001, ID-000002, etc.
+              return super().save(update_fields=['student_number'])
+          else:
+              super().save(*args, **kwargs)  
 
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)

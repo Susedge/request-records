@@ -53,9 +53,9 @@
         
         <div class="row mb-3">
             <div class="col-md-4">
-                <label for="course_code" class="form-label">Course</label>
+                <label for="course_code" class="form-label">Program</label>
                 <select class="form-select" id="course_code" name="course_code" required>
-                    <option value="">Select Course</option>
+                    <option value="">Select Program</option>
                     {% for course in courses %}
                     <option value="{{ course.code }}">{{ course.description }}</option>
                     {% endfor %}

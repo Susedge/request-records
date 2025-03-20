@@ -28,11 +28,22 @@ def admin_generate_report_pdf(request, template_id):
     template = get_object_or_404(ReportTemplate, id=template_id)
     
     # Get form data
+    first_name = request.POST.get('first_name', '')
+    last_name = request.POST.get('last_name', '')
+    middle_name = request.POST.get('middle_name', '')
+    suffix = request.POST.get('suffix', '')  # Get the suffix value
+    
+    # Construct full name with suffix if present
+    full_name = f"{first_name} {middle_name} {last_name}"
+    if suffix:
+        full_name += f", {suffix}"
+    
     field_mapping = {
-        'first_name': request.POST.get('first_name', ''),
-        'last_name': request.POST.get('last_name', ''),
-        'middle_name': request.POST.get('middle_name', ''),
-        'full_name': f"{request.POST.get('first_name', '')} {request.POST.get('middle_name', '')} {request.POST.get('last_name', '')}",
+        'first_name': first_name,
+        'last_name': last_name,
+        'middle_name': middle_name,
+        'suffix': suffix,  # Add suffix to the template variables
+        'full_name': full_name,
         'contact_no': request.POST.get('contact_no', ''),
         'entry_year_from': request.POST.get('entry_year_from', ''),
         'entry_year_to': request.POST.get('entry_year_to', ''),
