@@ -9,10 +9,70 @@
         <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" id="navbarDropdown" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="fas fa-user fa-fw"></i></a>
             <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
-                <li><a class="dropdown-item" href="/profile">Profile</a></li>
+                <li><a class="dropdown-item" href="#" id="profileBtn">Profile</a></li>
                 <li><hr class="dropdown-divider" /></li>
                 <li><a class="dropdown-item" href="{% url 'logout' %}">Logout</a></li>
             </ul>
         </li>
     </ul>
 </nav>
+
+<!-- Profile Modal -->
+<div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <!-- Content will be loaded dynamically -->
+            <div class="modal-body text-center">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    $(document).ready(function() {
+        // Function to show toast notifications
+        function showToast(options) {
+            Toastify({
+                text: options.message,
+                duration: 3000,
+                gravity: "top",
+                position: "right",
+                backgroundColor: options.color,
+                stopOnFocus: true
+            }).showToast();
+        }
+
+        // Handle profile button click
+        $('#profileBtn').on('click', function() {
+            openProfileModal();
+        });
+
+        function openProfileModal() {
+            const modal = $('#profileModal');
+            
+            // Show loading spinner
+            modal.find('.modal-content').html('<div class="modal-body text-center"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>');
+            
+            // Open the modal
+            modal.modal('show');
+            
+            // Load profile data
+            $.ajax({
+                url: '/profile/edit/',
+                type: 'GET',
+                success: function(response) {
+                    modal.find('.modal-content').html(response);
+                },
+                error: function() {
+                    modal.find('.modal-content').html('<div class="modal-body"><div class="alert alert-danger">Error loading profile data</div></div>');
+                }
+            });
+        }
+
+        // Make showToast function globally available
+        window.showToast = showToast;
+    });
+</script>

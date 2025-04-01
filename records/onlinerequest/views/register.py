@@ -75,7 +75,7 @@ def send_email_with_code(email, verification_code, expiry_time, message_type='ot
     elif message_type == 'reset':
         subject = 'Password Reset'
     else:
-        subject = 'Academic Online Request System'
+        subject = 'TAU-ARS'
     
     # Build message based on type
     if message_type == 'otp':
@@ -115,7 +115,7 @@ def send_email_with_code(email, verification_code, expiry_time, message_type='ot
 
     msg = MIMEText(message, 'html')
     msg['Subject'] = subject
-    msg['From'] = 'Academic Online Request System<{}>'.format(smtp_username)
+    msg['From'] = 'TAU-ARS<{}>'.format(smtp_username)
     msg['To'] = email
 
     with smtplib.SMTP(smtp_server, smtp_port) as server:

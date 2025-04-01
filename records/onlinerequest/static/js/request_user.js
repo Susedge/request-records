@@ -209,9 +209,18 @@ function submitRequest(id, request){
 
     formData.append("id", id);
     files.forEach((file, index) => {
-        // Append each file to the FormData object
-        formData.append(`${file.id}`, file.files[0]);
+        // Skip authorization_letter as we'll handle it separately
+        if (file.id !== 'authorization_letter') {
+            // Append each file to the FormData object
+            formData.append(`${file.id}`, file.files[0]);
+        }
     });
+
+    // Add authorization letter if provided
+    const authLetterInput = document.getElementById('authorization_letter');
+    if (authLetterInput && authLetterInput.files.length > 0) {
+        formData.append('authorization_letter', authLetterInput.files[0]);
+    }
 
     // Add null check for drpPurpose
     const purposeElement = document.querySelector("#drpPurpose");
@@ -300,7 +309,33 @@ function submitRequest(id, request){
             });
         }
     });
+}
 
+function validateFileSize(files) {
+    const MAX_FILE_SIZE = 25 * 1024 * 1024; // 25MB in bytes
+    let isValid = true;
+    
+    files.forEach(file => {
+        if (file.files[0] && file.files[0].size > MAX_FILE_SIZE) {
+            showToast({
+                message: `File ${file.files[0].name} exceeds 25MB limit`,
+                color: '#FF0000'
+            });
+            isValid = false;
+        }
+    });
+    
+    // Check authorization letter size if provided
+    const authLetterInput = document.getElementById('authorization_letter');
+    if (authLetterInput && authLetterInput.files.length > 0 && authLetterInput.files[0].size > MAX_FILE_SIZE) {
+        showToast({
+            message: `Authorization letter exceeds 25MB limit`,
+            color: '#FF0000'
+        });
+        isValid = false;
+    }
+    
+    return isValid;
 }
 
 function openPaymentTab(formData, requestID){

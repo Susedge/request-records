@@ -6,6 +6,7 @@ from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 import base64
 from django.utils import timezone
+import os
 
 def generate_key_from_user(user_id):
     return hashlib.sha256(str(user_id).encode()).digest()
@@ -95,6 +96,15 @@ class User(AbstractBaseUser):
           else:
               super().save(*args, **kwargs)  
 
+# Function to handle profile image upload paths
+def profile_image_path(instance, filename):
+    # Get the file extension
+    ext = filename.split('.')[-1]
+    # Generate a new filename using the user's ID
+    new_filename = f"profile_{instance.user.id}.{ext}"
+    # Return the upload path
+    return os.path.join('profile_images', new_filename)
+
 class Profile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     course = models.ForeignKey(Course, on_delete=models.CASCADE)
@@ -104,9 +114,18 @@ class Profile(models.Model):
     contact_no = models.IntegerField(default='09667614313')
     entry_year_from = models.IntegerField(default='2018')
     entry_year_to = models.IntegerField(default='2024')
+    profile_image = models.ImageField(upload_to=profile_image_path, blank=True, null=True)
 
     def __str__(self):
         return self.first_name
+    
+    def get_profile_image_url(self):
+        if self.profile_image and hasattr(self.profile_image, 'url'):
+            return self.profile_image.url
+        else:
+            # Return a default image URL using static
+            from django.templatetags.static import static
+            return static('assets/img/default-profile.jpg')
 
 class RegisterRequest(models.Model):
     user = models.OneToOneField(User, on_delete = models.CASCADE, related_name = "register_request")
@@ -147,6 +166,7 @@ class User_Request(models.Model):
     number_of_copies = models.IntegerField(default=1)
     uploaded_payment = models.TextField(blank=True)
     payment_status = models.CharField(max_length=10, default="Processing", blank=True)
+    authorization_letter = models.TextField(blank=True)
     schedule = models.DateTimeField(null=True, blank=True)  # Pickup schedule
     date_release = models.DateTimeField(null=True, blank=True)  # Date of release/pickup
     created_at = models.DateTimeField(auto_now_add=True)
@@ -187,7 +207,23 @@ class User_Request(models.Model):
                 pass
                 
         release_date = self.created_at + timezone.timedelta(days=processing_days)
-        return release_date    
+        return release_date
+
+    def set_authorization_letter(self, file_path):
+        if not file_path:
+            self.authorization_letter = ''
+            return
+        
+        key = generate_key_from_user(self.user.id)
+        self.authorization_letter = encrypt_data(file_path, key)
+
+    def get_authorization_letter(self):
+        if not self.authorization_letter:
+            return None
+        
+        key = generate_key_from_user(self.user.id)
+        return decrypt_data(self.authorization_letter, key)
+
 class Purpose(models.Model):
     description = models.CharField(max_length=256)
     active = models.BooleanField(default=True)

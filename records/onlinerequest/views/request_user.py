@@ -103,9 +103,15 @@ def create_request(request):
             # Upload and encrypt required files
             for file_name in request.FILES:
                 file = request.FILES.get(file_name)
-                encrypted_path = handle_uploaded_file(file, str(user_request.id))
-                file_prefix = "<" + file_name + "&>"
-                uploads += file_prefix + encrypted_path + ","
+                
+                # Handle authorization letter separately
+                if file_name == 'authorization_letter':
+                    encrypted_path = handle_uploaded_file(file, str(user_request.id), 'authorization_letter')
+                    user_request.authorization_letter = encrypted_path
+                else:
+                    encrypted_path = handle_uploaded_file(file, str(user_request.id))
+                    file_prefix = "<" + file_name + "&>"
+                    uploads += file_prefix + encrypted_path + ","
 
             user_request.uploads = uploads.rstrip(',')
             user_request.save()
@@ -126,13 +132,13 @@ def get_request(request, id):
 import hashlib
 from ..models import generate_key_from_user, encrypt_data, decrypt_data
 
-def handle_uploaded_file(file, source, source2=""):
+def handle_uploaded_file(file, source, file_type=""):
     try:
         # Define the path where you want to save the file
-        static_dir = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(source))
-
-        if source2:
-            static_dir = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(source), str(source2))
+        if file_type == 'authorization_letter':
+            static_dir = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(source), 'authorization_letter')
+        else:
+            static_dir = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(source))
 
         # Create the upload directory if it doesn't exist
         os.makedirs(static_dir, exist_ok=True)
@@ -253,6 +259,27 @@ def display_user_requests(request):
                             user_request.requested = file_path
                             break
 
+            # Decrypt authorization letter if exists
+            if hasattr(user_request, 'authorization_letter') and user_request.authorization_letter:
+                key = generate_key_from_user(str(user_request.id))
+                decrypted_hash = decrypt_data(user_request.authorization_letter, key)
+                base_path = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(user_request.id), 'authorization_letter')
+                
+                if os.path.exists(base_path):
+                    for filename in os.listdir(base_path):
+                        file_path = os.path.join(base_path, filename)
+                        current_hash = hashlib.sha256(file_path.encode()).hexdigest()
+                        if current_hash == decrypted_hash:
+                            user_request.authorization_letter_path = file_path
+                            user_request.has_authorization_letter = True
+                            break
+                    else:
+                        user_request.has_authorization_letter = False
+                else:
+                    user_request.has_authorization_letter = False
+            else:
+                user_request.has_authorization_letter = False
+
             # Set payment status if needed
             if not user_request.uploaded_payment:
                 user_request.payment_status = "Pending payment"
@@ -312,3 +339,82 @@ def verify_document(request, document_id):
         return render(request, 'user/request/verify-document.html', context)
     except User_Request.DoesNotExist:
         return HttpResponse("Invalid document verification code", status=404)
+
+# Add a new function to download authorization letter
+def download_authorization_letter(request, id):
+    try:
+        user_request = User_Request.objects.get(id=id)
+        
+        # Check if user is authorized to download
+        if request.user.is_authenticated and (request.user == user_request.user or request.user.user_type == 5):  # User or admin
+            # Decrypt the authorization letter path
+            if not user_request.authorization_letter:
+                return HttpResponse("No authorization letter found for this request", status=404)
+                
+            key = generate_key_from_user(str(user_request.id))
+            decrypted_hash = decrypt_data(user_request.authorization_letter, key)
+            base_path = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(user_request.id), 'authorization_letter')
+            
+            if os.path.exists(base_path):
+                for filename in os.listdir(base_path):
+                    file_path = os.path.join(base_path, filename)
+                    current_hash = hashlib.sha256(file_path.encode()).hexdigest()
+                    if current_hash == decrypted_hash:
+                        # Serve the file
+                        if os.path.exists(file_path):
+                            with open(file_path, 'rb') as fh:
+                                response = HttpResponse(fh.read(), content_type='application/octet-stream')
+                                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                                return response
+                        else:
+                            return HttpResponse("File not found", status=404)
+                
+                return HttpResponse("Authorization letter not found", status=404)
+            else:
+                return HttpResponse("Authorization letter directory not found", status=404)
+        else:
+            return HttpResponse("Unauthorized access", status=403)
+    except User_Request.DoesNotExist:
+        return HttpResponse("Request not found", status=404)
+    except Exception as e:
+        return HttpResponse(f"Error downloading authorization letter: {str(e)}", status=500)
+
+# Add this function to your request_user.py file
+
+def download_authorization_letter(request, id):
+    try:
+        user_request = User_Request.objects.get(id=id)
+        
+        # Check if user is authorized to download (either the user who made the request or an admin)
+        if request.user.is_authenticated and (request.user == user_request.user or request.user.user_type == 5):
+            # Decrypt the authorization letter path
+            if not user_request.authorization_letter:
+                return HttpResponse("No authorization letter found for this request", status=404)
+                
+            key = generate_key_from_user(str(user_request.id))
+            decrypted_hash = decrypt_data(user_request.authorization_letter, key)
+            base_path = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(user_request.id), 'authorization_letter')
+            
+            if os.path.exists(base_path):
+                for filename in os.listdir(base_path):
+                    file_path = os.path.join(base_path, filename)
+                    current_hash = hashlib.sha256(file_path.encode()).hexdigest()
+                    if current_hash == decrypted_hash:
+                        # Serve the file
+                        if os.path.exists(file_path):
+                            with open(file_path, 'rb') as fh:
+                                response = HttpResponse(fh.read(), content_type='application/octet-stream')
+                                response['Content-Disposition'] = f'attachment; filename="{filename}"'
+                                return response
+                        else:
+                            return HttpResponse("File not found", status=404)
+                
+                return HttpResponse("Authorization letter not found", status=404)
+            else:
+                return HttpResponse("Authorization letter directory not found", status=404)
+        else:
+            return HttpResponse("Unauthorized access", status=403)
+    except User_Request.DoesNotExist:
+        return HttpResponse("Request not found", status=404)
+    except Exception as e:
+        return HttpResponse(f"Error downloading authorization letter: {str(e)}", status=500)

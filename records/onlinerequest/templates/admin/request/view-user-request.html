@@ -52,6 +52,16 @@
                                                 <h6 class="fw-bold">Number of Copies:
                                                     <span class="fw-normal fs-6 mb-2">{{ user_request.number_of_copies }}</span>
                                                 </h6>
+                                                {% if user_request.authorization_letter or user_request.has_authorization_letter %}
+                                                <h6 class="fw-bold">Authorization Letter:</h6>
+                                                {% if user_request.has_authorization_letter %}
+                                                    <a href="{% url 'download_authorization_letter' user_request.id %}" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-download"></i> Download Authorization Letter
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">No authorization letter uploaded</span>
+                                                {% endif %}
+                                                {% endif %}
                                             </div>
                                         </div>
                                         <div class="row border-bottom mt-2">
@@ -248,7 +258,6 @@
     }
 
     // Check if GCash payment is missing when trying to mark as completed or for pickup
-    {% if not user_request.uploaded_payment %}
     if (newStatus === "Completed" || newStatus === "For Pickup") {
         showToast({
             'message': 'Warning: No GCash payment has been uploaded for this request.',
@@ -258,7 +267,6 @@
         // You can uncomment the following line if you want to prevent saving without payment
         // return;
     }
-    {% endif %}
 
     // Check if completion requires a file (only if we're not coming from "For Pickup" status)
     if (newStatus.toLowerCase() === "completed" &&

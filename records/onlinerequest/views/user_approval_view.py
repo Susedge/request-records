@@ -105,7 +105,7 @@ def index(request):
     
         msg = MIMEText(message, 'html')
         msg['Subject'] = subject
-        msg['From'] = 'Academic Online Request System<{}>'.format(settings.EMAIL_HOST_USER)
+        msg['From'] = 'TAU-ARS<{}>'.format(settings.EMAIL_HOST_USER)
         msg['To'] = email
 
         with smtplib.SMTP('smtp.gmail.com', 587) as server:

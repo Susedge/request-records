@@ -17,6 +17,9 @@ from onlinerequest.views import (
     qr_upload,
 )
 
+from django.conf import settings
+from django.conf.urls.static import static
+
 # Define URL paths here
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -110,7 +113,11 @@ urlpatterns = [
 
     path('admin-panel/user-accounts/profile/<int:user_id>/', record.get_user_profile, name='user_profile'),
     path('admin-panel/user-accounts/save-profile/', record.save_user_profile, name='save_user_profile'),
+    path('profile/edit/', record.get_current_user_profile, name='edit_user_profile'),
+    path('profile/save/', record.save_current_user_profile, name='save_user_profile'),
+
+    path('request/user/authorization-letter/<int:id>/', request_user.download_authorization_letter, name='download_authorization_letter'),
 ]
 
-
-
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
