@@ -112,6 +112,29 @@
                                         </div>
                                     </div>
                                     
+                                    <div class="form-section">
+                                        <div class="form-section-title">Output Format</div>
+                                        <div class="row mb-3">
+                                            <div class="col-md-6">
+                                                <div class="form-group mb-3 required-field">
+                                                    <label class="form-label">Select Format</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="output_format" id="format_docx" value="docx" checked>
+                                                        <label class="form-check-label" for="format_docx">
+                                                            <i class="fas fa-file-word"></i> DOCX
+                                                        </label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="radio" name="output_format" id="format_pdf" value="pdf">
+                                                        <label class="form-check-label" for="format_pdf">
+                                                            <i class="fas fa-file-pdf"></i> PDF
+                                                        </label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
                                     <div class="form-buttons">
                                         <a href="{% url 'admin_reports' %}" class="btn btn-secondary">Cancel</a>
                                         <button type="submit" class="btn btn-primary">Generate Template</button>

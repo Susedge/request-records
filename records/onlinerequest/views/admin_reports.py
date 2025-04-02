@@ -8,6 +8,8 @@ from datetime import datetime
 import io
 import tempfile
 from django.utils.text import slugify
+import pythoncom
+from docx2pdf import convert  # You'll need to pip install docx2pdf
 
 def admin_reports(request):
     templates = ReportTemplate.objects.all()
@@ -32,6 +34,7 @@ def admin_generate_report_pdf(request, template_id):
     last_name = request.POST.get('last_name', '')
     middle_name = request.POST.get('middle_name', '')
     suffix = request.POST.get('suffix', '')  # Get the suffix value
+    output_format = request.POST.get('output_format', 'docx')  # Get selected format
     
     # Construct full name with suffix if present
     full_name = f"{first_name} {middle_name} {last_name}"
@@ -65,24 +68,47 @@ def admin_generate_report_pdf(request, template_id):
             safe_name = "report"
         
         docx_path = os.path.join(generated_dir, f"{safe_name}.docx")
-        output_filename = f"{safe_name}.docx"  # Explicit filename for download
         
         # Process document using docxtpl for better template handling
         doc_template = DocxTemplate(template.template_file.path)
         doc_template.render(field_mapping)
         doc_template.save(docx_path)
         
-        # Serve the DOCX with explicit content disposition header
-        response = FileResponse(
-            open(docx_path, 'rb'),
-            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-        )
-        
-        # Set explicit Content-Disposition header
-        response['Content-Disposition'] = f'attachment; filename="{output_filename}"'
-        
-        # Add file cleanup after streaming
-        response._resource_closers.append(lambda: os.remove(docx_path))
+        # Handle PDF conversion if needed
+        if output_format == 'pdf':
+            pdf_path = os.path.join(generated_dir, f"{safe_name}.pdf")
+            # Initialize COM for PDF conversion
+            pythoncom.CoInitialize()
+            # Convert DOCX to PDF
+            convert(docx_path, pdf_path)
+            
+            # Serve the PDF
+            output_filename = f"{safe_name}.pdf"
+            response = FileResponse(
+                open(pdf_path, 'rb'),
+                content_type='application/pdf'
+            )
+            
+            # Set Content-Disposition header
+            response['Content-Disposition'] = f'attachment; filename="{output_filename}"'
+            
+            # Clean up both files after streaming
+            response._resource_closers.append(lambda: os.remove(docx_path))
+            response._resource_closers.append(lambda: os.remove(pdf_path))
+            
+        else:
+            # Serve the DOCX with explicit content disposition header
+            output_filename = f"{safe_name}.docx"
+            response = FileResponse(
+                open(docx_path, 'rb'),
+                content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            
+            # Set explicit Content-Disposition header
+            response['Content-Disposition'] = f'attachment; filename="{output_filename}"'
+            
+            # Add file cleanup after streaming
+            response._resource_closers.append(lambda: os.remove(docx_path))
         
         return response
                 
