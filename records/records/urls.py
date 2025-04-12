@@ -116,8 +116,10 @@ urlpatterns = [
     path('profile/edit/', record.get_current_user_profile, name='edit_user_profile'),
     path('profile/save/', record.save_current_user_profile, name='save_user_profile'),
 
+    path('admin-panel/user-request/<int:request_id>/mark-inactive', views.mark_request_inactive, name='mark_request_inactive'),
     path('request/user/authorization-letter/<int:id>/', request_user.download_authorization_letter, name='download_authorization_letter'),
 ]
+
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

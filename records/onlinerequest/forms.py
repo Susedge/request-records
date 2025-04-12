@@ -2,9 +2,19 @@ from django import forms
 from .models import User, Record, Profile
 from django.contrib.auth.forms import ReadOnlyPasswordHashField
 from django.core.exceptions import ValidationError
+import re
 
 
 class UserRegistrationForm(forms.ModelForm):
+
+    email = forms.EmailField(
+        max_length=64,
+        error_messages={
+            'required': 'Please enter your email.',
+            'unique': 'Email already exists.',
+            'invalid': 'Please enter a valid email address.'
+        }
+    )
     student_number = forms.CharField(
         max_length=64,
         required=False,  # Make it optional
@@ -14,17 +24,16 @@ class UserRegistrationForm(forms.ModelForm):
         help_text="Optional. Leave blank to auto-generate an ID."
     )
 
-    email = forms.CharField(
-        max_length=64,
-        error_messages={
-            'required': 'Please enter your email.',
-            'unique': 'Invalid student email.'
-        }
-    )
- 
     user_type = forms.IntegerField(
         error_messages={
             'required': 'Please enter your user type.',
+        }
+    )
+
+    password = forms.CharField(
+        widget=forms.PasswordInput(),
+        error_messages={
+            'required': 'Please enter a password.',
         }
     )
 
@@ -37,6 +46,26 @@ class UserRegistrationForm(forms.ModelForm):
             if User.objects.filter(student_number=student_number).exists():
                 raise forms.ValidationError('This student number is already in use.')
         return student_number
+    
+    def clean_password(self):
+        password = self.cleaned_data.get('password')
+        
+        if len(password) < 8:
+            raise ValidationError('Password must be at least 8 characters long.')
+            
+        if not any(char.isdigit() for char in password):
+            raise ValidationError('Password must contain at least one number.')
+            
+        if not any(char.isupper() for char in password):
+            raise ValidationError('Password must contain at least one uppercase letter.')
+            
+        if not any(char.islower() for char in password):
+            raise ValidationError('Password must contain at least one lowercase letter.')
+            
+        if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+            raise ValidationError('Password must contain at least one special character.')
+            
+        return password
 
     class Meta:
         model = User
@@ -48,7 +77,8 @@ class UserRegistrationForm(forms.ModelForm):
 
         if commit == True:
             user.save()
-        return user# For modifying user form
+        return user
+
 class UserChangeForm(forms.ModelForm):
     password = ReadOnlyPasswordHashField()
 

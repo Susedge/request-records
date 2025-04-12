@@ -151,3 +151,51 @@ def get_request_details(request):
         })
     
     return JsonResponse(data, safe=False)
+
+def mark_request_inactive(request, request_id):
+    try:
+        user_request = User_Request.objects.get(id=request_id)
+        user_request.status = "inactive"
+        user_request.save()
+        
+        return JsonResponse({
+            'status': True,
+            'message': 'Request marked as inactive successfully'
+        })
+    except User_Request.DoesNotExist:
+        return JsonResponse({
+            'status': False,
+            'message': 'Request not found'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'status': False,
+            'message': f'Error: {str(e)}'
+        })
+
+def admin_user_requests(request):
+    # Your existing code to get user_requests
+    user_requests = User_Request.objects.all()
+    
+    # Check for requests whose last update was more than a year ago
+    one_year_ago = timezone.now() - timedelta(days=365)
+    old_requests = User_Request.objects.filter(
+        updated_at__lt=one_year_ago,  # Using updated_at instead of created_at
+        status__ne="inactive"  # Only update requests that aren't already inactive
+    )
+    
+    # Update old requests to inactive
+    updated_count = 0
+    for old_request in old_requests:
+        old_request.status = "inactive"
+        old_request.save()
+        updated_count += 1
+    
+    if updated_count > 0:
+        messages.info(request, f"{updated_count} requests not updated in over a year were automatically marked as inactive.")
+    
+    context = {
+        'user_requests': user_requests,
+    }
+    
+    return render(request, 'admin-panel/request/user-request.html', context)

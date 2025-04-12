@@ -124,7 +124,8 @@
                       <!-- Dashboard Header -->
                       <div class="dashboard-header">
                           <div class="container-fluid px-4">
-                              <h1 class="dashboard-title">Welcome to Your Dashboard</h1>
+                              <h1 class="dashboard-title">Welcome, {{ user_record.first_name|default:'Username' }} {{ user_record.last_name|default:'' }}!
+                            </h1>
                               <p class="dashboard-subtitle">View your account information and status</p>
                           </div>
                     </div>

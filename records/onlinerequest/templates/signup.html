@@ -126,6 +126,17 @@
                     placeholder="Enter your password"
                   />
                 </div>
+                <div id="password-requirements" class="password-requirements">
+                  <p>Password must:</p>
+                  <ul>
+                    <li id="length-check"><i class="fas fa-times"></i> Be at least 8 characters long</li>
+                    <li id="uppercase-check"><i class="fas fa-times"></i> Contain at least one uppercase letter</li>
+                    <li id="lowercase-check"><i class="fas fa-times"></i> Contain at least one lowercase letter</li>
+                    <li id="number-check"><i class="fas fa-times"></i> Contain at least one number</li>
+                    <li id="special-check"><i class="fas fa-times"></i> Contain at least one special character</li>
+                  </ul>
+                </div>
+
                   <div class="input-box" style="display:none;">
                     <i class="fas fa-user"></i>
                     <input type="hidden" name="user_type" value="1">
@@ -203,6 +214,49 @@
 
     <script>
       $(document).ready(function () {
+
+        // Add this inside your $(document).ready function
+        $("#signupPassword").on("focus", function() {
+          $("#password-requirements").show();
+        }).on("input", function() {
+          var password = $(this).val();
+          
+          // Check length
+          if (password.length >= 8) {
+            $("#length-check i").removeClass("fa-times").addClass("fa-check");
+          } else {
+            $("#length-check i").removeClass("fa-check").addClass("fa-times");
+          }
+          
+          // Check uppercase
+          if (/[A-Z]/.test(password)) {
+            $("#uppercase-check i").removeClass("fa-times").addClass("fa-check");
+          } else {
+            $("#uppercase-check i").removeClass("fa-check").addClass("fa-times");
+          }
+          
+          // Check lowercase
+          if (/[a-z]/.test(password)) {
+            $("#lowercase-check i").removeClass("fa-times").addClass("fa-check");
+          } else {
+            $("#lowercase-check i").removeClass("fa-check").addClass("fa-times");
+          }
+          
+          // Check number
+          if (/[0-9]/.test(password)) {
+            $("#number-check i").removeClass("fa-times").addClass("fa-check");
+          } else {
+            $("#number-check i").removeClass("fa-check").addClass("fa-times");
+          }
+          
+          // Check special character
+          if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+            $("#special-check i").removeClass("fa-times").addClass("fa-check");
+          } else {
+            $("#special-check i").removeClass("fa-check").addClass("fa-times");
+          }
+        });
+
         $("#signupEmail").on("input", function () {
           var email = $(this).val();
           if (email.trim() !== "") {
@@ -231,9 +285,42 @@
 
         $("form").on("submit", function (e) {
           e.preventDefault();
+
+          var isSignUpForm = $("#flip").prop("checked");
+  
+          if (isSignUpForm) {
+            var password = $("#signupPassword").val();
+            var isValid = true;
+            var errorMessage = "";
+            
+            if (password.length < 8) {
+              isValid = false;
+              errorMessage = "Password must be at least 8 characters long.";
+            } else if (!/[A-Z]/.test(password)) {
+              isValid = false;
+              errorMessage = "Password must contain at least one uppercase letter.";
+            } else if (!/[a-z]/.test(password)) {
+              isValid = false;
+              errorMessage = "Password must contain at least one lowercase letter.";
+            } else if (!/[0-9]/.test(password)) {
+              isValid = false;
+              errorMessage = "Password must contain at least one number.";
+            } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+              isValid = false;
+              errorMessage = "Password must contain at least one special character.";
+            }
+            
+            if (!isValid) {
+              showToast({
+                message: errorMessage,
+                color: "#FF0000",
+              });
+              return;
+            }
+          }
+
           var formData = $(this).serialize();
           var $form = $(this);
-          var isSignUpForm = $("#flip").prop("checked");
           var url = isSignUpForm ? '/register/' : '/login/';
 
           $.ajax({
@@ -247,7 +334,6 @@
               });
 
               if (response.status && isSignUpForm) {
-                // Redirect to /request/ page after successful registration
                 setTimeout(() => {
                   window.location.href = response.redirect || "/request/";
                 }, 2000);

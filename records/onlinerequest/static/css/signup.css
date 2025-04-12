@@ -478,3 +478,29 @@ input[type="file"] {
   margin-bottom: 15px;
   color: #555;
 }
+
+
+.password-requirements {
+  margin: 10px 0;
+  font-size: 0.85em;
+  color: #666;
+  display: none;
+}
+
+.password-requirements ul {
+  list-style-type: none;
+  padding-left: 10px;
+  margin-top: 5px;
+}
+
+.password-requirements li {
+  margin-bottom: 3px;
+}
+
+.password-requirements li .fa-times {
+  color: #dc3545;
+}
+
+.password-requirements li .fa-check {
+  color: #28a745;
+}
