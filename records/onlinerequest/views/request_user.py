@@ -1,4 +1,4 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.http import HttpResponse
 from django.http import JsonResponse
 from rest_framework.response import Response
@@ -20,7 +20,7 @@ def create_request(request):
     if request.method == 'POST':
         try:
             request_form = Request.objects.get(id=request.POST.get('id'))
-            status = "Payment not yet settled"
+            status = "Processing"  # Changed from "Payment not yet settled" to "Processing"
             uploads = ""
 
             # Check if user is authenticated
@@ -66,7 +66,8 @@ def create_request(request):
                 request=request_form,
                 status=status,
                 purpose=request.POST.get("purpose"),
-                number_of_copies=int(request.POST.get("number_of_copies", 1))
+                number_of_copies=int(request.POST.get("number_of_copies", 1)),
+                payment_status="Approved"  # Set a default payment status
             )
         
             # Update user type immediately if provided
@@ -116,7 +117,12 @@ def create_request(request):
             user_request.uploads = uploads.rstrip(',')
             user_request.save()
         
-            return JsonResponse({'status': True, 'message': 'Successfully created request!', 'id': user_request.id})
+            return JsonResponse({
+                'status': True, 
+                'message': 'Successfully created request! Your request is now being processed.',
+                'id': user_request.id,
+                'redirect': '/request/user/'  # Redirect to user requests page instead of payment
+            })
         except Exception as e:
             return JsonResponse({'status': False, 'message': str(e)})
     return JsonResponse({'status': False, 'message': 'Invalid request method'})
@@ -169,67 +175,10 @@ def get_document_description(request, doc_code):
 
 from django.contrib.auth import login
 
+# This function is modified to simply redirect to the user dashboard
 def display_payment(request, id):
-    if request.method == "POST":
-        user_request = get_if_exists(User_Request, id=id)
-
-        if user_request:
-            try:
-                # Upload and encrypt payment file path
-                for file_name in request.FILES:
-                    file = request.FILES.get(file_name)
-                    encrypted_path = handle_uploaded_file(file, str(user_request.id), 'uploaded_payment')
-                    user_request.uploaded_payment = encrypted_path
-                    user_request.status = "Waiting"
-                    user_request.save()
-                
-                # If user is not authenticated, log them in
-                if not request.user.is_authenticated:
-                    # Get the user from the request
-                    user = user_request.user
-                    
-                    # Authenticate the user (without password check since we already verified ownership)
-                    user.backend = 'django.contrib.auth.backends.ModelBackend'
-                    login(request, user)
-                
-                return JsonResponse({
-                    "status": True, 
-                    "message": "Payment successful! Redirecting to your requests...",
-                    "redirect": "/request/user/"
-                })
-            except Exception as e:
-                return JsonResponse({"status": False, "message": f"Error processing payment: {str(e)}"})
-
-        return JsonResponse({"status": False, "message": "Invalid payment detected. Please contact your administrator."})
-    elif request.method == "GET":
-        # Get the user request first
-        requested_document = get_if_exists(User_Request, id=id)
-        
-        if not requested_document:
-            return HttpResponse("Request not found. Please contact your administrator.")
-            
-        # Check if user is authenticated
-        if request.user.is_authenticated:
-            user = request.user
-            # Verify this user owns the request
-            if requested_document.user.id != user.id:
-                return HttpResponse("Unauthorized access. This request belongs to another user.")
-        else:
-            # For unauthenticated users, check if they have a temp_user_email
-            user_email = request.session.get('temp_user_email')
-            if not user_email:
-                return HttpResponse("Session expired. Please return to the main page and try again.")
-                
-            try:
-                user = User.objects.get(email=user_email)
-                # Verify this user owns the request
-                if requested_document.user.id != user.id:
-                    return HttpResponse("Unauthorized access. This request belongs to another user.")
-            except User.DoesNotExist:
-                return HttpResponse("User not found. Please register or login first.")
-
-        # If we get here, the user is authorized to view this payment page
-        return render(request, "payment.html", {"user": user, "requested_document": requested_document})
+    # Just redirect to the user requests page
+    return redirect('/request/user/')
 
 def display_user_requests(request):
     try:
@@ -280,9 +229,9 @@ def display_user_requests(request):
             else:
                 user_request.has_authorization_letter = False
 
-            # Set payment status if needed
-            if not user_request.uploaded_payment:
-                user_request.payment_status = "Pending payment"
+            # Set a default payment status if needed
+            if not user_request.payment_status:
+                user_request.payment_status = "Approved"
                 user_request.save()
 
         return render(request, 'user/request/view-user-request.html', {'user_requests': user_requests})
@@ -347,46 +296,6 @@ def download_authorization_letter(request, id):
         
         # Check if user is authorized to download
         if request.user.is_authenticated and (request.user == user_request.user or request.user.user_type == 5):  # User or admin
-            # Decrypt the authorization letter path
-            if not user_request.authorization_letter:
-                return HttpResponse("No authorization letter found for this request", status=404)
-                
-            key = generate_key_from_user(str(user_request.id))
-            decrypted_hash = decrypt_data(user_request.authorization_letter, key)
-            base_path = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(user_request.id), 'authorization_letter')
-            
-            if os.path.exists(base_path):
-                for filename in os.listdir(base_path):
-                    file_path = os.path.join(base_path, filename)
-                    current_hash = hashlib.sha256(file_path.encode()).hexdigest()
-                    if current_hash == decrypted_hash:
-                        # Serve the file
-                        if os.path.exists(file_path):
-                            with open(file_path, 'rb') as fh:
-                                response = HttpResponse(fh.read(), content_type='application/octet-stream')
-                                response['Content-Disposition'] = f'attachment; filename="{filename}"'
-                                return response
-                        else:
-                            return HttpResponse("File not found", status=404)
-                
-                return HttpResponse("Authorization letter not found", status=404)
-            else:
-                return HttpResponse("Authorization letter directory not found", status=404)
-        else:
-            return HttpResponse("Unauthorized access", status=403)
-    except User_Request.DoesNotExist:
-        return HttpResponse("Request not found", status=404)
-    except Exception as e:
-        return HttpResponse(f"Error downloading authorization letter: {str(e)}", status=500)
-
-# Add this function to your request_user.py file
-
-def download_authorization_letter(request, id):
-    try:
-        user_request = User_Request.objects.get(id=id)
-        
-        # Check if user is authorized to download (either the user who made the request or an admin)
-        if request.user.is_authenticated and (request.user == user_request.user or request.user.user_type == 5):
             # Decrypt the authorization letter path
             if not user_request.authorization_letter:
                 return HttpResponse("No authorization letter found for this request", status=404)

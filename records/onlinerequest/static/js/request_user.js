@@ -292,12 +292,8 @@ function submitRequest(id, request){
 
             if (response.status) {
                 setTimeout(function() {
-                    let isNewTabOpened = openPaymentTab(formData, response.id);
-
-                    if (isNewTabOpened){
-                        // Disable page
-                        document.body.classList.toggle('overlay');
-                    }
+                    // Redirect to user requests page instead of payment
+                    window.location.href = '/request/user/';
                 }, 4000);
             }
         },
@@ -336,45 +332,6 @@ function validateFileSize(files) {
     }
     
     return isValid;
-}
-
-function openPaymentTab(formData, requestID){
-    sessionStorage.clear();
-    sessionStorage.setItem("data", formData);
-    return openNewTab("/request/checkout/" + requestID, 800, 800);
-}
-
-function openNewTab(url, width, height){
-    // Debug
-    console.log("New tab opened: " + url);
-    var leftPosition, topPosition;
-    //Allow for borders.
-    leftPosition = (window.screen.width / 2) - ((width / 2) + 10);
-
-    //Allow for title and status bars.
-    topPosition = (window.screen.height / 2) - ((height / 2) + 50);
-
-    //Open the window.
-    let openedWindow = window.open(url, "Window2",
-    "status=no,height=" + height + ",width=" + width + ",resizable=yes,left="
-    + leftPosition + ",top=" + topPosition + ",screenX=" + leftPosition + ",screenY="
-    + topPosition + ",toolbar=no,menubar=no,scrollbars=no,location=no,directories=no");
-
-    let intervalId = setInterval(function() {
-        if (openedWindow.closed) {
-            clearInterval(intervalId); // Clear the interval
-            console.log("Back to the main page"); // Debug
-
-            window.focus();
-            document.body.classList.toggle('overlay');
-            
-            setTimeout(function() {
-                window.location.href='/request/user/'
-            }, 1000);
-        }
-    }, 500);
-
-    return true;
 }
 
 function getDocumentDescription(docCode, callback) {

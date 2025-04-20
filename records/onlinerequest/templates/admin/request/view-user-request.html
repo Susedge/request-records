@@ -89,29 +89,6 @@
                                                 {% endif %}
                                             </div>
                                         </div>
-                                        <div class="row mt-3">
-                                            <div class="col-md-12">
-                                                <h6 class="fw-bold mb-3">Payment:</h6>
-                                                {% if user_request.uploaded_payment %}
-                                                <ul class="list-group">
-                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                        Set payment status:
-                                                        <select class="form-select" name="payment_status" id="payment_status" aria-label="Default select example">
-                                                            <option value="Processing" {% if user_request.payment_status == "Processing" %} selected {% endif %}>Processing</option>
-                                                            <option value="Paid" {% if user_request.payment_status == "Paid" %} selected {% endif %}>Paid</option>
-                                                            <option value="On Hold" {% if user_request.payment_status == "On Hold" %} selected {% endif %}>On Hold</option>
-                                                            <option value="Failed" {% if user_request.payment_status == "Failed" %} selected {% endif %}>Failed</option>
-                                                            <option value="Refunded" {% if user_request.payment_status == "Refunded" %} selected {% endif %}>Refunded</option>
-                                                        </select>
-                                                    </li>
-                                                    <li class="list-group-item d-flex justify-content-between align-items-center">
-                                                        Gcash Payment
-                                                        <a href="{% static user_request.uploaded_payment %}" download class="btn btn-primary btn-sm">Download</a>
-                                                    </li>
-                                                </ul>
-                                                {% endif %}
-                                            </div>
-                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -233,91 +210,79 @@
             });
 
             function saveChanges(id) {
-    var csrftoken = getCookie('csrftoken');
-    let formData = new FormData();
-    
-    const newStatus = document.getElementById("newStatus").value;
-    const currentStatus = document.getElementById("requestStatus").textContent.trim();
-    
-    formData.append('new_status', newStatus);
-    formData.append('payment_status', document.querySelector("#payment_status").value);
-    formData.append('processing_time', document.getElementById("processingTime").value);
-    formData.append('remarks', document.getElementById("remarks").value);
-
-    // Add the new fields
-    if (document.getElementById("pickupSchedule").value) {
-        formData.append('pickupSchedule', document.getElementById("pickupSchedule").value);
-    }
-    
-    if (document.getElementById("dateRelease").value) {
-        formData.append('dateRelease', document.getElementById("dateRelease").value);
-    }
-
-    if (document.getElementById("requestedFile").files.length > 0) {
-        formData.append('requested_file', document.getElementById("requestedFile").files[0]);
-    }
-
-    // Check if GCash payment is missing when trying to mark as completed or for pickup
-    if (newStatus === "Completed" || newStatus === "For Pickup") {
-        showToast({
-            'message': 'Warning: No GCash payment has been uploaded for this request.',
-            'color': '#FFA500', // Orange color for warnings
-            'duration': 5000,
-        });
-        // You can uncomment the following line if you want to prevent saving without payment
-        // return;
-    }
-
-    // Check if completion requires a file (only if we're not coming from "For Pickup" status)
-    if (newStatus.toLowerCase() === "completed" &&
-        document.getElementById("requestedFile").files.length === 0 &&
-        currentStatus !== "For Pickup" &&
-        !document.querySelector("a[download].btn-success")) {
-        showToast({
-            'message': 'Please upload a file before marking the request as "Completed" or ensure it was already For Pickup',
-            'color': '#FF0000',
-            'duration': 4000,
-        });
-        return;
-    }
-
-    $.ajax({
-        type: 'POST',
-        url: '/admin-panel/user-request/' + id,
-        data: formData,
-        processData: false,
-        contentType: false,
-        headers: {
-            'X-CSRFToken': csrftoken
-        },
-        success: function(response) {
-            showToast({
-                'message': response.message,
-                'color': response.status ? '#008000' : '#FF0000',
-                'duration': 4000,
-            });
-
-            if (response.status) {
-                let status = document.getElementById("requestStatus");
-                status.textContent = response.request_status;
+                var csrftoken = getCookie('csrftoken');
+                let formData = new FormData();
                 
-                setTimeout(() => {
-                    showToast({
-                        'message': 'Redirecting back to user requests...',
-                        'duration': 2000,
-                    });
-                }, 1000);
+                const newStatus = document.getElementById("newStatus").value;
+                const currentStatus = document.getElementById("requestStatus").textContent.trim();
+                
+                formData.append('new_status', newStatus);
+                formData.append('processing_time', document.getElementById("processingTime").value);
+                formData.append('remarks', document.getElementById("remarks").value);
 
-                setTimeout(() => {
-                    window.location.href = "/admin-panel/user-request/"
-                }, 3000);
+                // Add the new fields
+                if (document.getElementById("pickupSchedule").value) {
+                    formData.append('pickupSchedule', document.getElementById("pickupSchedule").value);
+                }
+                
+                if (document.getElementById("dateRelease").value) {
+                    formData.append('dateRelease', document.getElementById("dateRelease").value);
+                }
+
+                if (document.getElementById("requestedFile").files.length > 0) {
+                    formData.append('requested_file', document.getElementById("requestedFile").files[0]);
+                }
+
+                // Check if completion requires a file (only if we're not coming from "For Pickup" status)
+                if (newStatus.toLowerCase() === "completed" &&
+                    document.getElementById("requestedFile").files.length === 0 &&
+                    currentStatus !== "For Pickup" &&
+                    !document.querySelector("a[download].btn-success")) {
+                    showToast({
+                        'message': 'Please upload a file before marking the request as "Completed" or ensure it was already For Pickup',
+                        'color': '#FF0000',
+                        'duration': 4000,
+                    });
+                    return;
+                }
+
+                $.ajax({
+                    type: 'POST',
+                    url: '/admin-panel/user-request/' + id,
+                    data: formData,
+                    processData: false,
+                    contentType: false,
+                    headers: {
+                        'X-CSRFToken': csrftoken
+                    },
+                    success: function(response) {
+                        showToast({
+                            'message': response.message,
+                            'color': response.status ? '#008000' : '#FF0000',
+                            'duration': 4000,
+                        });
+
+                        if (response.status) {
+                            let status = document.getElementById("requestStatus");
+                            status.textContent = response.request_status;
+                            
+                            setTimeout(() => {
+                                showToast({
+                                    'message': 'Redirecting back to user requests...',
+                                    'duration': 2000,
+                                });
+                            }, 1000);
+
+                            setTimeout(() => {
+                                window.location.href = "/admin-panel/user-request/"
+                            }, 3000);
+                        }
+                    },
+                    error: function(xhr, errmsg, err) {
+                        console.log(errmsg);
+                    }
+                });
             }
-        },
-        error: function(xhr, errmsg, err) {
-            console.log(errmsg);
-        }
-    });
-}
 
             function getCookie(name) {
                 var cookieValue = null;
@@ -336,3 +301,4 @@
         </script>    
     </body>
 </html>
+

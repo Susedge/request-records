@@ -36,7 +36,7 @@ def display_user_request(request, id):
     if request.method == "POST":
         new_status = request.POST.get('new_status')
         requested_file = request.FILES.get('requested_file')
-        payment_status = request.POST.get("payment_status")
+        # payment_status = request.POST.get("payment_status")
         processing_time = request.POST.get("processing_time")
         pickup_schedule = request.POST.get("pickupSchedule")
         date_release = request.POST.get("dateRelease")
@@ -49,7 +49,7 @@ def display_user_request(request, id):
             encrypted_file_path = handle_uploaded_file(id, requested_file)
             user_request.requested = encrypted_file_path
 
-        user_request.payment_status = payment_status
+        # user_request.payment_status = payment_status
         user_request.status = new_status
         user_request.remarks = remarks
         

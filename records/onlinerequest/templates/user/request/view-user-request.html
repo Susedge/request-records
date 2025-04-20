@@ -36,8 +36,6 @@
                                     <th>Document</th>
                                     <th>Status</th>
                                     <th>Info</th>
-                                    <th>Payment Status</th>
-                                    <th>Receipt</th>
                                 </thead>
                                 <tbody>
                                 {% if user_requests %}
@@ -56,26 +54,7 @@
                                                 {% else %}
                                                     In process
                                                 {% endif %}
-                                            </td>
-                                                                                                                          
-                                            <td>
-                                                {% if user_request.uploaded_payment %}
-                                                    {{ user_request.payment_status }}
-                                                {% else %}
-                                                    Pending payment
-                                                {% endif %}
-                                            </td>                                            
-                                            <td>
-                                                {% if user_request.payment_status == "Paid" %}
-                                                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#receiptModal{{ user_request.id }}">View Receipt</button>
-                                                {% elif user_request.payment_status == "Failed" %}
-                                                    <button class="btn btn-danger btn-sm" onclick="openPaymentTab('{{ user_request.id }}')">Resend payment</button>
-                                                {% elif not user_request.uploaded_payment %}
-                                                    <button class="btn btn-success btn-sm" onclick="openPaymentTab('{{ user_request.id }}')">Pay Now</button>
-                                                {% else %}
-                                                    N/A
-                                                {% endif %}
-                                            </td>                                                                                     
+                                            </td>                                                                                 
                                         </tr>
                                         
                                         

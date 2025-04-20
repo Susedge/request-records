@@ -65,7 +65,7 @@ urlpatterns = [
     # Request - User
     path('request/', request_user.index, name='request_user'),
     path('request/<int:id>/', request_user.get_request),
-    path('request/checkout/<int:id>', request_user.display_payment),
+    # path('request/checkout/<int:id>', request_user.display_payment),
     path('get-document-description/<str:doc_code>/', request_user.get_document_description),
     path('request/user/create/', request_user.create_request),
     path('request/user/', request_user.display_user_requests),
