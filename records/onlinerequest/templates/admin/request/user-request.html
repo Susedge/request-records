@@ -67,6 +67,7 @@
                                     <thead>
                                     <tr>
                                         <th>User Information</th>
+                                        <th>Date Created</th>
                                         <th>Documents</th>
                                         <th>Status</th>
                                         <th>Approval</th>
@@ -92,6 +93,7 @@
                                                     <br>
                                                     <small>{{ user_request.user.email }}</small>
                                                 </td>
+                                                <td>{{ user_request.created_at|date:"F d, Y H:i" }}</td>
                                                 <td>{{ user_request.request }}</td>
                                                 <td>{{ user_request.status }}</td>
                                                 <td>
