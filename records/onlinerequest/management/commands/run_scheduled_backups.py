@@ -9,14 +9,14 @@ class Command(BaseCommand):
     help = 'Run scheduled database backup if needed'
 
     def handle(self, *args, **options):
-        # Check if a backup is due (30 days since last successful backup)
+        # Check if a backup is due (now running daily)
         latest_backup = DatabaseBackup.objects.filter(successful=True).order_by('-created_at').first()
-        days_since_last_backup = 30  # Default
+        days_since_last_backup = 1  # Default
         
         if latest_backup:
             days_since_last_backup = (timezone.now() - latest_backup.created_at).days
         
-        if days_since_last_backup >= 30:  # Backup every 30 days
+        if days_since_last_backup >= 1:  # Backup every day
             self.stdout.write('Running scheduled database backup...')
             
             # Call the backup command
@@ -39,4 +39,4 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(self.style.ERROR('Scheduled backup failed!'))
         else:
-            self.stdout.write(f'No backup needed yet. Next backup in {30 - days_since_last_backup} days.')
+            self.stdout.write(f'No backup needed yet. Next backup in {1 - days_since_last_backup} days.')

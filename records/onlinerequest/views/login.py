@@ -3,6 +3,8 @@ from django.http import HttpResponse, JsonResponse
 from django.contrib.auth import authenticate, login
 from ..models import User
 from .register import generate_verification_code, send_email_with_code
+from django.core import management
+import threading
 
 def index(request):
     if request.method == "POST":
@@ -32,6 +34,15 @@ def index(request):
                 # Skip OTP for admin users (user_type = 5)
                 if user.user_type == 5:
                     login(request, user)
+                    
+                    # Trigger database backup when admin logs in (in a background thread)
+                    def run_backup_thread():
+                        management.call_command('run_scheduled_backups', verbosity=0)
+                    
+                    backup_thread = threading.Thread(target=run_backup_thread)
+                    backup_thread.daemon = True
+                    backup_thread.start()
+                    
                     return JsonResponse({'status': True, 'message': 'Logged in as administrator'})
                 
                 # Generate and send OTP for non-admin users
