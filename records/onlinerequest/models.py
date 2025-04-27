@@ -76,10 +76,20 @@ class User(AbstractBaseUser):
       email = models.EmailField(max_length=254, unique=True)
       password = models.CharField(max_length=256)
       is_active = models.BooleanField(default=False)
+      # Add these required admin fields
+      is_staff = models.BooleanField(default=False)  # Required for admin access
+      is_superuser = models.BooleanField(default=False)  # Required for full admin permissions
       user_type = models.PositiveSmallIntegerField(choices = USER_TYPE_CHOICES, default = 0)  # Default to unspecified
 
       USERNAME_FIELD = 'email'
       REQUIRED_FIELDS = []
+
+      # Add these permission methods that are required for admin
+      def has_perm(self, perm, obj=None):
+          return self.is_superuser
+
+      def has_module_perms(self, app_label):
+          return self.is_superuser
 
       def __str__(self):
           return self.student_number or self.email
@@ -271,3 +281,20 @@ class TempRecord(models.Model):
     
     def __str__(self):
         return f"Temp Record for {self.first_name} {self.last_name}"
+
+class DatabaseBackup(models.Model):
+    backup_file = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+    successful = models.BooleanField(default=True)
+    file_size = models.IntegerField(default=0)  # Size in bytes
+    
+    def __str__(self):
+        return f"Backup on {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    
+    def get_file_size_display(self):
+        """Convert file size to human-readable format"""
+        size = self.file_size
+        for unit in ['B', 'KB', 'MB', 'GB']:
+            if size < 1024 or unit == 'GB':
+                return f"{size:.2f} {unit}"
+            size /= 1024

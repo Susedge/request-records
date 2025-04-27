@@ -16,6 +16,7 @@ from onlinerequest.views import (
     admin_reports,
     qr_upload,
     user_request,
+    backup_views
 )
 
 from django.conf import settings
@@ -126,6 +127,12 @@ urlpatterns = [
     
     path('admin-panel/user-request/<int:id>/upload-report', request.upload_report, name='upload_report'),
 
+    # Database Backup Routes
+    path('admin-panel/database-backups/', backup_views.backup_list, name='backup_list'),
+    path('admin-panel/database-backups/create/', backup_views.create_backup, name='create_backup'),
+    path('admin-panel/database-backups/download/<int:backup_id>/', backup_views.download_backup, name='download_backup'),
+    path('admin-panel/database-backups/delete/<int:backup_id>/', backup_views.delete_backup, name='delete_backup'),
+    path('admin-panel/database-backups/schedule/', backup_views.schedule_backup, name='schedule_backup'),
 ]
 
 if settings.DEBUG:
