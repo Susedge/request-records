@@ -2,7 +2,11 @@ from django.shortcuts import render
 from django.http import HttpResponse
 from django.contrib.auth import logout
 from django.shortcuts import redirect
-from onlinerequest.models import Request, Requirement, User_Request, Profile
+from onlinerequest.models import Request, Requirement, User_Request, Profile, Document
+from django.contrib import messages
+from django.utils import timezone
+from datetime import timedelta
+from django.db.models import Count
 
 def index(request):
     request_forms = Request.objects.all()
@@ -174,14 +178,23 @@ def mark_request_inactive(request, request_id):
         })
 
 def admin_user_requests(request):
-    # Your existing code to get user_requests
-    user_requests = User_Request.objects.all()
+    # Use select_related to efficiently fetch related Profile data
+    user_requests = User_Request.objects.all().select_related('user', 'user__profile', 'request', 'request__document')
+    
+    # Get document types for the filter dropdown - temporarily remove active filter
+    document_types = Document.objects.all().order_by('description')
+    
+    # Debug: print all documents
+    all_docs = Document.objects.all()
+    print(f"All documents: {all_docs.count()}")
+    for doc in all_docs:
+        print(f"Document: {doc.id} - {doc.code} - {doc.description} - Active: {doc.active if hasattr(doc, 'active') else 'N/A'}")
     
     # Check for requests whose last update was more than a year ago
     one_year_ago = timezone.now() - timedelta(days=365)
     old_requests = User_Request.objects.filter(
-        updated_at__lt=one_year_ago,  # Using updated_at instead of created_at
-        status__ne="inactive"  # Only update requests that aren't already inactive
+        updated_at__lt=one_year_ago,
+        status__ne="inactive"
     )
     
     # Update old requests to inactive
@@ -196,6 +209,7 @@ def admin_user_requests(request):
     
     context = {
         'user_requests': user_requests,
+        'document_types': document_types,
     }
     
-    return render(request, 'admin-panel/request/user-request.html', context)
+    return render(request, 'admin/request/user-request.html', context)

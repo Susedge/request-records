@@ -327,3 +327,42 @@ def download_authorization_letter(request, id):
         return HttpResponse("Request not found", status=404)
     except Exception as e:
         return HttpResponse(f"Error downloading authorization letter: {str(e)}", status=500)
+
+def get_requirements(request, request_id):
+    """Get the requirements for a specific user request"""
+    try:
+        user_request = User_Request.objects.get(id=request_id, user=request.user)
+        
+        # Only return requirements if status is Approved
+        if user_request.status != "Approved":
+            return JsonResponse({
+                'status': False,
+                'message': 'Requirements are only available for approved requests.'
+            })
+        
+        # Get requirements from approved_requirements field
+        requirement_codes = user_request.get_approved_requirements()
+        requirements = []
+        
+        for code in requirement_codes:
+            try:
+                requirement = Requirement.objects.get(code=code)
+                requirements.append({
+                    'code': code,
+                    'description': requirement.description
+                })
+            except Requirement.DoesNotExist:
+                requirements.append({
+                    'code': code,
+                    'description': f"Document: {code}"
+                })
+        
+        return JsonResponse({
+            'status': True,
+            'requirements': requirements
+        })
+    except User_Request.DoesNotExist:
+        return JsonResponse({
+            'status': False,
+            'message': 'Request not found'
+        }, status=404)

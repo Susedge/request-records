@@ -62,6 +62,7 @@ TEMPLATES = [
                 'onlinerequest.context_processors.user_profile',
                 'onlinerequest.context_processors.courses',
                 'onlinerequest.context_processors.user_requests',
+                'onlinerequest.context_processors.document_types',
             ],
         },
     },

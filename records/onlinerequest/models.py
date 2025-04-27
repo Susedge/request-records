@@ -171,6 +171,8 @@ class User_Request(models.Model):
     date_release = models.DateTimeField(null=True, blank=True)  # Date of release/pickup
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    approved_requirements = models.TextField(blank=True, null=True)
+    approved = models.BooleanField(default=False)
 
     def set_uploads(self, uploads_list):
         if not uploads_list:
@@ -223,6 +225,25 @@ class User_Request(models.Model):
         
         key = generate_key_from_user(self.user.id)
         return decrypt_data(self.authorization_letter, key)
+
+    def set_approved_requirements(self, requirements_list):
+        if not requirements_list:
+            self.approved_requirements = ''
+            return
+        
+        key = generate_key_from_user(self.user.id)
+        encrypted_requirements = [encrypt_data(req, key) for req in requirements_list]
+        self.approved_requirements = ','.join(encrypted_requirements)
+    
+    def get_approved_requirements(self):
+        if not self.approved_requirements:
+            return []
+        
+        key = generate_key_from_user(self.user.id)
+        if not self.approved_requirements:
+            return []
+        encrypted_requirements = self.approved_requirements.split(',')
+        return [decrypt_data(req, key) for req in encrypted_requirements]
 
 class Purpose(models.Model):
     description = models.CharField(max_length=256)

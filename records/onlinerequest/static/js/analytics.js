@@ -1,12 +1,14 @@
 // Global variables
 let documentChart;
 let requestTable;
+let documentStatsData = [];
 
 // Analytics Chart Functions
 function loadStats() {
     fetch(`/api/request-stats/?filter=${$('#timeFilter').val()}`)
         .then(response => response.json())
         .then(data => {
+            documentStatsData = data.document_stats; // Store the data globally
             updateDocumentChart(data.document_stats);
             updateProcessingTimes(data.processing_times);
         })
@@ -227,6 +229,7 @@ function setupDateRangeFiltering(table) {
     $('#clearDateFilter').on('click', function() {
         $('#dateFrom, #dateTo').val('');
         table.clearFilter();
+        showToast('Date filters cleared');
     });
 }
 
@@ -235,16 +238,18 @@ function setupDateRangeFiltering(table) {
 function setupExportButtons(table) {
     // Export to CSV
     document.getElementById("export-csv").addEventListener("click", function() {
-        table.download("csv", "reports_summaary.csv", {
+        table.download("csv", "reports_summary.csv", {
             sheetName: "Reports Summary"
         });
+        showToast('CSV exported successfully');
     });
     
     // Export to Excel
     document.getElementById("export-excel").addEventListener("click", function() {
-        table.download("xlsx", "reports_summaary.xlsx", {
+        table.download("xlsx", "reports_summary.xlsx", {
             sheetName: "Reports Summary"
         });
+        showToast('Excel file exported successfully');
     });
     
     // Export to PDF with smaller fonts and bold title
@@ -280,6 +285,7 @@ function setupExportButtons(table) {
                 }
             }
         });
+        showToast('PDF exported successfully');
     });
     
 }
@@ -353,8 +359,234 @@ function performSearch(table, value) {
     });
 }
 
+// Function to export chart data as CSV
+function exportChartAsCSV() {
+    console.log('Exporting chart as CSV...');
+    if (documentStatsData.length === 0) {
+        showToast('No data available to export', true);
+        return;
+    }
+    
+    const csvRows = [];
+    const headers = ['Document Type', 'Count', 'Percentage'];
+    csvRows.push(headers.join(','));
+    
+    const total = documentStatsData.reduce((sum, item) => sum + item.count, 0);
+    
+    documentStatsData.forEach(item => {
+        const percentage = ((item.count / total) * 100).toFixed(2);
+        const rowData = [
+            `"${item.request__document__description}"`,
+            item.count,
+            `${percentage}%`
+        ];
+        csvRows.push(rowData.join(','));
+    });
+    
+    // Create a total row
+    csvRows.push(['"TOTAL"', total, '100.00%'].join(','));
+    
+    // Add a timestamp of when the report was generated
+    const timestamp = new Date().toLocaleString();
+    csvRows.push([`"Report generated on: ${timestamp}"`].join(','));
+    
+    // Create and download the CSV file
+    const csvContent = csvRows.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'document_requests_summary.csv');
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+// Function to export chart data as Excel
+function exportChartAsExcel() {
+    console.log('Exporting chart as Excel...');
+    if (documentStatsData.length === 0) {
+        showToast('No data available to export', true);
+        return;
+    }
+    
+    // Create a workbook with a worksheet
+    const wb = XLSX.utils.book_new();
+    
+    // Prepare data for the worksheet
+    const wsData = [['Document Type', 'Count', 'Percentage']];
+    
+    const total = documentStatsData.reduce((sum, item) => sum + item.count, 0);
+    
+    documentStatsData.forEach(item => {
+        const percentage = ((item.count / total) * 100).toFixed(2);
+        wsData.push([
+            item.request__document__description,
+            item.count,
+            `${percentage}%`
+        ]);
+    });
+    
+    // Add a total row
+    wsData.push(['TOTAL', total, '100.00%']);
+    
+    // Add a timestamp
+    wsData.push([]);
+    wsData.push([`Report generated on: ${new Date().toLocaleString()}`]);
+    
+    // Create the worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Add the worksheet to the workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Document Requests');
+    
+    // Generate the Excel file and trigger download
+    XLSX.writeFile(wb, 'document_requests_summary.xlsx');
+}
+
+// Function to export chart data as PDF
+function exportChartAsPDF() {
+    try {
+        console.log('Exporting chart as PDF...');
+        if (!documentStatsData || documentStatsData.length === 0) {
+            showToast('No data available to export', true);
+            return;
+        }
+        
+        console.log('Document stats data:', documentStatsData);
+        
+        // Create PDF document
+        const { jsPDF } = window.jspdf;
+        if (!jsPDF) {
+            console.error('jsPDF not available');
+            showToast('PDF export library not loaded. Please try again.', true);
+            return;
+        }
+        
+        const doc = new jsPDF();
+        
+        // Add title
+        doc.setFontSize(16);
+        doc.setFont(undefined, 'bold');
+        doc.text('Document Requests Summary', 14, 20);
+        
+        // Add timestamp
+        doc.setFontSize(10);
+        doc.setFont(undefined, 'normal');
+        doc.text(`Report generated on: ${new Date().toLocaleString()}`, 14, 30);
+        
+        // Calculate total
+        const total = documentStatsData.reduce((sum, item) => sum + item.count, 0);
+        
+        // Prepare data for the table
+        const tableData = documentStatsData.map(item => {
+            const percentage = ((item.count / total) * 100).toFixed(2);
+            return [
+                item.request__document__description,
+                item.count,
+                `${percentage}%`
+            ];
+        });
+        
+        // Add total row
+        tableData.push(['TOTAL', total, '100.00%']);
+        
+        // Create the PDF table
+        doc.autoTable({
+            head: [['Document Type', 'Count', 'Percentage']],
+            body: tableData,
+            startY: 40,
+            styles: {
+                fontSize: 10,
+                cellPadding: 3
+            },
+            headStyles: {
+                fillColor: [41, 128, 185],
+                textColor: 255,
+                fontStyle: 'bold'
+            },
+            alternateRowStyles: {
+                fillColor: [240, 240, 240]
+            }
+        });
+        
+        // Add pie chart image
+        if (documentChart) {
+            try {
+                const chartImg = documentChart.toBase64Image();
+                doc.addPage();
+                doc.setFontSize(14);
+                doc.setFont(undefined, 'bold');
+                doc.text('Document Requests Chart', 14, 20);
+                doc.addImage(chartImg, 'JPEG', 20, 30, 170, 150);
+            } catch (e) {
+                console.error('Error adding chart to PDF:', e);
+            }
+        }
+        
+        // Save the PDF
+        doc.save('document_requests_summary.pdf');
+        
+        // Show success toast after export
+        showToast('PDF exported successfully');
+    } catch (error) {
+        console.error('Error exporting to PDF:', error);
+        showToast('Error exporting to PDF: ' + error.message, true);
+    }
+}
+
+// Set up export buttons for the chart - make sure to properly attach event handlers
+function setupChartExportButtons() {
+    // First, remove any existing event listeners (to prevent duplicates)
+    const csvBtn = document.getElementById('export-chart-csv');
+    const excelBtn = document.getElementById('export-chart-excel');
+    const pdfBtn = document.getElementById('export-chart-pdf');
+    
+    // Clone and replace elements to remove all event listeners
+    if (csvBtn) {
+        const newCsvBtn = csvBtn.cloneNode(true);
+        csvBtn.parentNode.replaceChild(newCsvBtn, csvBtn);
+        
+        // Add the event listener to the new button
+        newCsvBtn.addEventListener('click', function(e) {
+            e.preventDefault(); // Prevent any default behavior
+            e.stopPropagation(); // Stop event bubbling
+            exportChartAsCSV();
+        });
+    }
+    
+    if (excelBtn) {
+        const newExcelBtn = excelBtn.cloneNode(true);
+        excelBtn.parentNode.replaceChild(newExcelBtn, excelBtn);
+        
+        newExcelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            exportChartAsExcel();
+        });
+    }
+    
+    if (pdfBtn) {
+        const newPdfBtn = pdfBtn.cloneNode(true);
+        pdfBtn.parentNode.replaceChild(newPdfBtn, pdfBtn);
+        
+        newPdfBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            exportChartAsPDF();
+        });
+    }
+}
+
 // Then, in the document ready function, add:
 $(document).ready(function() {
+    // Set a flag to track if we've already set up the buttons
+    if (!window.chartExportButtonsInitialized) {
+        setupChartExportButtons();
+        window.chartExportButtonsInitialized = true;
+    }
+    
     // Load charts data
     $('#timeFilter').change(loadStats);
     loadStats();
@@ -363,6 +595,7 @@ $(document).ready(function() {
     const table = initializeTable();
     setupDateRangeFiltering(table);
     setupExportButtons(table);
+    setupChartExportButtons();
     setupSearchFunctionality(table); // Add this line
     setupTabSwitching(table);
     
@@ -372,4 +605,12 @@ $(document).ready(function() {
             table.redraw(true);
         }
     });
+    
+    // Make sure this function is called
+    setupChartExportButtons();
+    
+    // Add a direct check to verify the buttons exist
+    console.log('CSV Button exists:', $('#export-chart-csv').length > 0);
+    console.log('Excel Button exists:', $('#export-chart-excel').length > 0);
+    console.log('PDF Button exists:', $('#export-chart-pdf').length > 0);
 });

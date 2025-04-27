@@ -15,6 +15,7 @@ from onlinerequest.views import (
     reports,
     admin_reports,
     qr_upload,
+    user_request,
 )
 
 from django.conf import settings
@@ -118,8 +119,14 @@ urlpatterns = [
 
     path('admin-panel/user-request/<int:request_id>/mark-inactive', views.mark_request_inactive, name='mark_request_inactive'),
     path('request/user/authorization-letter/<int:id>/', request_user.download_authorization_letter, name='download_authorization_letter'),
-]
 
+    path('request/user/<int:request_id>/requirements/', user_request.get_requirements, name='get_user_request_requirements'),
+    path('request/user/<int:request_id>/upload-requirements/', user_request.upload_requirements, name='upload_user_request_requirements'),
+    path('request/user/<int:request_id>/check-status/', user_request.check_request_status, name='check_request_status'),
+    
+    path('admin-panel/user-request/<int:id>/upload-report', request.upload_report, name='upload_report'),
+
+]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

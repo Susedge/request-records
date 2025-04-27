@@ -36,22 +36,29 @@ def display_user_request(request, id):
     if request.method == "POST":
         new_status = request.POST.get('new_status')
         requested_file = request.FILES.get('requested_file')
-        # payment_status = request.POST.get("payment_status")
         processing_time = request.POST.get("processing_time")
         pickup_schedule = request.POST.get("pickupSchedule")
         date_release = request.POST.get("dateRelease")
         remarks = request.POST.get("remarks")
+        action = request.POST.get("action")  # New parameter to track actions like approve/decline
         
         user_request = User_Request.objects.get(id=id)
 
+        # Set approved flag based on action
+        if request.POST.get('approved') == 'true' or action == 'approve':
+            user_request.approved = True
+        
+        # Handle uploading requested file if provided
         if requested_file is not None:
-            # This will now return encrypted path
             encrypted_file_path = handle_uploaded_file(id, requested_file)
             user_request.requested = encrypted_file_path
 
-        # user_request.payment_status = payment_status
+        # Update request status
         user_request.status = new_status
-        user_request.remarks = remarks
+        
+        # Add remarks if provided
+        if remarks:
+            user_request.remarks = remarks  # Assuming you have a remarks field
         
         # Handle schedule and release date
         if pickup_schedule:
@@ -61,9 +68,6 @@ def display_user_request(request, id):
         if date_release:
             from django.utils.dateparse import parse_datetime
             user_request.date_release = parse_datetime(date_release)
-
-        if processing_time:
-            user_request.processing_time = processing_time
         elif processing_time:
             # Set a dynamic attribute for the calculate_date_release method
             user_request.processing_time = processing_time
@@ -71,26 +75,21 @@ def display_user_request(request, id):
         
         user_request.save()
 
-        return JsonResponse({'status': True, 'message': 'Request status updated successfully.', 'request_status': user_request.status})    
+        return JsonResponse({
+            'status': True, 
+            'message': 'Request updated successfully.', 
+            'request_status': user_request.status
+        })
+        
     if request.method == "GET":
         try:
             user_request = User_Request.objects.get(id=id)
             uploads = []
-        
-            # Decrypt payment file path if exists
-            if user_request.uploaded_payment:
-                key = generate_key_from_user(id)
-                decrypted_payment_hash = decrypt_data(user_request.uploaded_payment, key)
-                payment_base_path = os.path.join(settings.MEDIA_ROOT, 'onlinerequest', 'static', 'user_request', str(id), 'uploaded_payment')
             
-                if os.path.exists(payment_base_path):
-                    for filename in os.listdir(payment_base_path):
-                        file_path = os.path.join(payment_base_path, filename)
-                        current_hash = hashlib.sha256(file_path.encode()).hexdigest()
-                        if current_hash == decrypted_payment_hash:
-                            user_request.uploaded_payment = file_path
-                            break
-        
+            # Get all requirements for the form
+            document_requirements = Requirement.objects.all()
+            
+            # Process uploads for display
             if user_request.uploads:
                 key = generate_key_from_user(id)
                 upload_items = user_request.uploads.split(',')
@@ -118,12 +117,49 @@ def display_user_request(request, id):
             return render(request, 'admin/request/view-user-request.html', {
                 'user_request': user_request,
                 'uploads': uploads,
+                'document_requirements': document_requirements,
             })
         except User_Request.DoesNotExist:
             return JsonResponse({'status': False, 'message': 'User request not found'}, status=404)
         except Exception as e:
-            return JsonResponse({'status': False, 'message': f'Error: {str(e)}'}, status=500)   
-                             
+            return JsonResponse({'status': False, 'message': f'Error: {str(e)}'}, status=500)
+
+# Add a new function to upload report files
+def upload_report(request, id):
+    if request.method == "POST":
+        new_status = request.POST.get('new_status')
+        requested_file = request.FILES.get('requested_file')
+        date_release = request.POST.get("dateRelease")
+        
+        user_request = User_Request.objects.get(id=id)
+        
+        # Handle file upload if provided
+        file_path = None
+        if requested_file:
+            encrypted_file_path = handle_uploaded_file(id, requested_file)
+            user_request.requested = encrypted_file_path
+            file_path = os.path.join("/static/user_request", str(id), "approved", requested_file.name)
+        
+        # Handle date release
+        if date_release:
+            from django.utils.dateparse import parse_datetime
+            user_request.date_release = parse_datetime(date_release)
+        
+        # Update status if changed
+        if new_status:
+            user_request.status = new_status
+        
+        user_request.save()
+        
+        return JsonResponse({
+            'status': True,
+            'message': 'Report uploaded successfully.',
+            'request_status': user_request.status,
+            'file_path': file_path
+        })
+    
+    return JsonResponse({'status': False, 'message': 'Invalid request method'}, status=400)
+
 def getCodeDescription(model, key):
     try:
         model_instance = model.objects.get(code=key)

@@ -1,4 +1,4 @@
-from onlinerequest.models import Record, Request, Profile, Course
+from onlinerequest.models import Record, Request, Profile, Course, Document
 
 def user_record(request):
     if request.user.is_authenticated:
@@ -35,3 +35,8 @@ def courses(request):
     """Make all courses available to templates"""
     all_courses = Course.objects.all()
     return {'all_courses': all_courses}
+
+def document_types(request):
+    """Make all document types available to templates"""
+    all_document_types = Document.objects.all().order_by('description')
+    return {'all_document_types': all_document_types}

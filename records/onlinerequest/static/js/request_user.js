@@ -126,56 +126,12 @@ $(document).ready(function() {
         });
 
         container.appendChild(drpPurpose);
-    
-        // // Number of copies
-        // const lblCopies = document.createElement("h5");
-        // lblCopies.innerHTML = "Number of Copies:";
-        // container.appendChild(lblCopies);
-    
-        // // Create number input for copies
-        // const copiesContainer = document.createElement("div");
-        // copiesContainer.classList.add("mb-3");
-    
-        // const copiesInput = document.createElement("input");
-        // copiesInput.setAttribute("type", "number");
-        // copiesInput.setAttribute("id", "numCopies");
-        // copiesInput.setAttribute("min", "1");
-        // copiesInput.setAttribute("max", "10");
-        // copiesInput.setAttribute("value", "1");
-        // copiesInput.classList.add("form-control");
-    
-        // copiesContainer.appendChild(copiesInput);
-        // container.appendChild(copiesContainer);
 
-        // Create label
-        const h2 = document.createElement("h5");
-        h2.innerHTML = "Required Files:";
-        container.appendChild(h2);
-
-        // Create upload input for files_required
-        const requiredFiles = (data.files_required).split(',');
-        requiredFiles.forEach((requiredFile) => {
-            let fileInputContainer = document.createElement("div");
-            fileInputContainer.classList.add("mb-3");
-
-            let fileLabel = document.createElement("label");
-            fileLabel.setAttribute("for", requiredFile);
-
-            // Fetch document description for the required file code
-            getDocumentDescription(requiredFile, function(description) {
-                fileLabel.textContent = description;
-            });
-
-            let fileInput = document.createElement("input");
-            fileInput.setAttribute("type", "file");
-            fileInput.setAttribute("id", requiredFile);
-            fileInput.classList.add("form-control");
-            fileInput.required = true;
-
-            fileInputContainer.appendChild(fileLabel);
-            fileInputContainer.appendChild(fileInput);
-            container.appendChild(fileInputContainer);
-        });
+        // Create note about additional requirements
+        const noteDiv = document.createElement("div");
+        noteDiv.classList.add("alert", "alert-info", "mt-3", "mb-3");
+        noteDiv.innerHTML = "<strong>Note:</strong> Additional document requirements may be requested after your request is reviewed and approved.";
+        container.appendChild(noteDiv);
 
         // Create submit button
         const btnSubmitRequest = document.createElement("button");
@@ -191,15 +147,27 @@ $(document).ready(function() {
 });
 
 function submitRequest(id, request){
-    const files = document.querySelectorAll('input[type="file"]');
-
-    if (!validateForm()) {
-        showToast({ message: 'Form submission failed due to missing required files.', color: '#FF0000' });
-        return; // Do not proceed with form submission
+    // Only validate authorization letter if provided
+    const authLetterInput = document.getElementById('authorization_letter');
+    if (authLetterInput && authLetterInput.files.length > 0) {
+        if (!validateFileSize([authLetterInput])) {
+            return;
+        }
     }
 
-    if (!validateFileSize(files)) {
-        return;
+    // Validate purpose
+    const purposeElement = document.querySelector("#drpPurpose");
+    if (purposeElement && purposeElement.value === "Others") {
+        const customPurposeInput = document.querySelector("#customPurpose");
+        if (!customPurposeInput || !customPurposeInput.value.trim()) {
+            showToast({ message: 'Please specify your purpose.', color: '#FF0000' });
+            if (customPurposeInput) {
+                customPurposeInput.classList.add('is-invalid');
+            }
+            return;
+        } else {
+            customPurposeInput.classList.remove('is-invalid');
+        }
     }
 
     var csrftoken = getCookie('csrftoken');
@@ -208,42 +176,27 @@ function submitRequest(id, request){
     var formData = new FormData();
 
     formData.append("id", id);
-    files.forEach((file, index) => {
-        // Skip authorization_letter as we'll handle it separately
-        if (file.id !== 'authorization_letter') {
-            // Append each file to the FormData object
-            formData.append(`${file.id}`, file.files[0]);
-        }
-    });
 
     // Add authorization letter if provided
-    const authLetterInput = document.getElementById('authorization_letter');
     if (authLetterInput && authLetterInput.files.length > 0) {
         formData.append('authorization_letter', authLetterInput.files[0]);
     }
 
-    // Add null check for drpPurpose
-    const purposeElement = document.querySelector("#drpPurpose");
+    // Add purpose
     if (purposeElement) {
-        // Check if "Others" is selected and custom purpose input exists
         if (purposeElement.value === "Others") {
             const customPurposeInput = document.querySelector("#customPurpose");
             if (customPurposeInput && customPurposeInput.value.trim()) {
                 formData.append('purpose', "Other: " + customPurposeInput.value.trim());
-            } else {
-                showToast({ message: 'Please specify your purpose.', color: '#FF0000' });
-                return;
             }
         } else {
             formData.append('purpose', purposeElement.value);
         }
     } else {
-        // Use a default value or get it from request object if available
         formData.append('purpose', request?.purpose?.[0]?.description || 'General Purpose');
-        console.warn("Purpose dropdown not found in DOM, using fallback value");
     }
     
-    // Get number_of_copies from the outer form instead of the dynamically created form
+    // Get number_of_copies from the outer form
     const numberOfCopiesElement = document.querySelector("#number_of_copies");
     if (numberOfCopiesElement) {
         formData.append('number_of_copies', numberOfCopiesElement.value);
@@ -292,7 +245,7 @@ function submitRequest(id, request){
 
             if (response.status) {
                 setTimeout(function() {
-                    // Redirect to user requests page instead of payment
+                    // Redirect to user requests page
                     window.location.href = '/request/user/';
                 }, 4000);
             }
@@ -365,14 +318,7 @@ function getCookie(name) {
 }
 
 function validateForm() {
-    const fileInputs = document.querySelectorAll('input[type="file"][required]');
     let isValid = true;
-
-    fileInputs.forEach(input => {
-        if (!input.value) {
-            isValid = false;
-        }
-    });
 
     // Validate custom purpose if "Others" is selected
     const purposeElement = document.querySelector("#drpPurpose");
@@ -388,7 +334,7 @@ function validateForm() {
         }
     }
 
-    // Also validate profile form if it exists
+    // Validate profile form if it exists
     if (document.getElementById('profile-form')) {
         const requiredFields = document.getElementById('profile-form').querySelectorAll('[required]');
         requiredFields.forEach(field => {
@@ -419,4 +365,194 @@ function validateFileSize(files) {
     });
     
     return isValid;
+}
+
+// Add these functions
+function showRequirements(requestId) {
+    // Set the form action directly
+    const form = document.getElementById('requirementsForm');
+    form.action = `/request/user/${requestId}/upload-requirements/`;
+    
+    // Set the request ID
+    document.getElementById('requestId').value = requestId;
+    
+    // Clear previous fields
+    document.getElementById('requirementFields').innerHTML = '';
+    
+    // Create a test file input just to make sure the form works
+    let testContainer = document.createElement('div');
+    testContainer.classList.add('mb-3');
+    
+    let testLabel = document.createElement('label');
+    testLabel.textContent = 'Test Document Upload';
+    testLabel.classList.add('form-label');
+    
+    let testInput = document.createElement('input');
+    testInput.setAttribute('type', 'file');
+    testInput.setAttribute('name', 'test_document');
+    testInput.classList.add('form-control');
+    testInput.required = true;
+    
+    testContainer.appendChild(testLabel);
+    testContainer.appendChild(testInput);
+    document.getElementById('requirementFields').appendChild(testContainer);
+    
+    // Show the modal
+    let modal = new bootstrap.Modal(document.getElementById('requirementsModal'));
+    modal.show();
+}
+
+function loadRequirements(requestId) {
+    // Clear previous fields
+    document.getElementById('requirementFields').innerHTML = '';
+    document.getElementById('requestId').value = requestId;
+    
+    // Get requirements for this request
+    $.ajax({
+        type: 'GET',
+        url: '/request/user/' + requestId + '/requirements/',
+        success: function(response) {
+            if (response.requirements && response.requirements.length > 0) {
+                response.requirements.forEach(req => {
+                    let fileInputContainer = document.createElement("div");
+                    fileInputContainer.classList.add("mb-3");
+                    
+                    let fileLabel = document.createElement("label");
+                    fileLabel.setAttribute("for", req.code);
+                    fileLabel.textContent = req.description;
+                    fileLabel.classList.add("form-label");
+                    
+                    let fileInput = document.createElement("input");
+                    fileInput.setAttribute("type", "file");
+                    fileInput.setAttribute("id", req.code);
+                    fileInput.setAttribute("name", req.code);
+                    fileInput.classList.add("form-control");
+                    fileInput.required = true;
+                    
+                    fileInputContainer.appendChild(fileLabel);
+                    fileInputContainer.appendChild(fileInput);
+                    document.getElementById('requirementFields').appendChild(fileInputContainer);
+                });
+                
+                // Show the modal
+                let modal = new bootstrap.Modal(document.getElementById('requirementsModal'));
+                modal.show();
+            } else {
+                showToast({
+                    message: 'No requirements found for this request.',
+                    color: '#FF0000'
+                });
+            }
+        },
+        error: function(xhr, errmsg, err) {
+            console.log(errmsg);
+            showToast({
+                message: 'Error loading requirements. Please try again.',
+                color: '#FF0000'
+            });
+        }
+    });
+}
+
+function submitRequirements() {
+    const reqForm = document.getElementById('requirementsForm');
+    const files = reqForm.querySelectorAll('input[type="file"]');
+    const requestId = document.getElementById('requestId').value;
+    
+    console.log("Submitting requirements for request ID:", requestId);
+    console.log("File inputs found:", files.length);
+    
+    // Debug check on files
+    let hasFiles = false;
+    files.forEach(fileInput => {
+        console.log(`Input ${fileInput.id}:`, 
+                   fileInput.files.length > 0 ? fileInput.files[0].name : "no file selected");
+        if (fileInput.files.length > 0) {
+            hasFiles = true;
+        }
+    });
+    
+    if (!hasFiles) {
+        showToast({
+            message: 'Please select at least one file to upload.',
+            color: '#FF0000'
+        });
+        return;
+    }
+    
+    // Create form data - simpler approach
+    var formData = new FormData();
+    
+    // Add the request ID
+    formData.append("request_id", requestId);
+    
+    // Add all files
+    files.forEach(fileInput => {
+        if (fileInput.files[0]) {
+            // Use name attribute instead of id to be consistent
+            console.log(`Adding file: ${fileInput.name} = ${fileInput.files[0].name}`);
+            formData.append(fileInput.name, fileInput.files[0]);
+        }
+    });
+    
+    // Show submitting message
+    showToast({
+        message: 'Uploading files...',
+        color: '#007bff'
+    });
+    
+    var csrftoken = getCookie('csrftoken');
+    
+    $.ajax({
+        type: 'POST',
+        url: '/request/user/' + requestId + '/upload-requirements/',
+        data: formData,
+        processData: false,
+        contentType: false,
+        headers: {
+            'X-CSRFToken': csrftoken
+        },
+        success: function(response) {
+            console.log("Upload response:", response);
+            if (response.status) {
+                showToast({
+                    message: response.message,
+                    color: '#28a745'
+                });
+                
+                // Close modal and refresh page
+                let modal = bootstrap.Modal.getInstance(document.getElementById('requirementsModal'));
+                modal.hide();
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showToast({
+                    message: response.message || 'Error uploading files',
+                    color: '#FF0000'
+                });
+            }
+        },
+        error: function(xhr, errmsg, err) {
+            console.error("Upload error:", err);
+            console.error("Server response:", xhr.responseText);
+            showToast({
+                message: 'Server error. Please try again.',
+                color: '#FF0000'
+            });
+        }
+    });
+}
+
+function validateFileInputs(files) {
+    let valid = true;
+    files.forEach(file => {
+        if (!file.files || file.files.length === 0) {
+            valid = false;
+            file.classList.add('is-invalid');
+        } else {
+            file.classList.remove('is-invalid');
+        }
+    });
+    return valid;
 }
