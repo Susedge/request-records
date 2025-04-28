@@ -186,6 +186,52 @@ def get_requests(request):
     requests_json = RequestSerializer(requests, many=True).data  # Serialize the queryset
     return JsonResponse(requests_json, safe=False)
 
+def toggle_request_status(request, id):
+    """Toggle the active status of a request form"""
+    if request.method == "POST":
+        try:
+            request_obj = Request.objects.get(id=id)
+            
+            # Get the new status from POST data or toggle current status
+            new_status = request.POST.get('active', None)
+            original_status = request_obj.active
+            
+            if new_status is not None:
+                request_obj.active = new_status == 'true' or new_status == True
+            else:
+                request_obj.active = not request_obj.active
+            
+            # Log the status change
+            print(f"Request {id} status changing from {original_status} to {request_obj.active}")
+            
+            request_obj.save()
+            
+            status_text = "active" if request_obj.active else "inactive"
+            return JsonResponse({
+                'status': True,
+                'message': f'Request has been marked as {status_text}',
+                'active': request_obj.active,
+                'request_id': id
+            })
+        except Request.DoesNotExist:
+            return JsonResponse({
+                'status': False,
+                'message': 'Request not found'
+            }, status=404)
+        except Exception as e:
+            import traceback
+            print(f"Error in toggle_request_status: {str(e)}")
+            traceback.print_exc()
+            return JsonResponse({
+                'status': False,
+                'message': f'Error: {str(e)}'
+            }, status=500)
+    
+    return JsonResponse({
+        'status': False,
+        'message': 'Invalid request method'
+    }, status=400)
+
 import hashlib
 from ..models import generate_key_from_user, encrypt_data, decrypt_data
 

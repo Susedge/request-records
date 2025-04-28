@@ -12,7 +12,7 @@ class RequestSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Request
-        fields = ['id', 'description', 'files_required', 'document', 'purpose', 'price']
+        fields = ['id', 'description', 'files_required', 'document', 'purpose', 'price', 'active']
 
     def get_purpose(self, obj):
         purposes = Purpose.objects.filter(active=True)

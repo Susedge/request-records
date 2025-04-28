@@ -63,10 +63,12 @@ urlpatterns = [
     path('admin-panel/user-request/<int:id>', request.display_user_request),
     path('request/list/', request.get_requests),
     path('request/<int:id>/delete/', request.delete_request),
+    path('request/<int:id>/toggle-status/', request.toggle_request_status),
 
     # Request - User
     path('request/', request_user.index, name='request_user'),
     path('request/<int:id>/', request_user.get_request),
+    path('request/active-list/', request_user.get_active_requests, name='get_active_requests'),
     # path('request/checkout/<int:id>', request_user.display_payment),
     path('get-document-description/<str:doc_code>/', request_user.get_document_description),
     path('request/user/create/', request_user.create_request),

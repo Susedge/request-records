@@ -18,10 +18,69 @@ function showToast(options) {
 $(document).ready(function() {
     // Events
     $('#btnCreate').click(function() {
-        let selectedRequest = document.querySelector("#request")
+        // Clear any existing error messages first
+        $("#container").empty();
+        
+        let selectedRequest = document.querySelector("#request");
+        if (!selectedRequest || !selectedRequest.value) {
+            showToast({message: "Please select a request type", color: "#FF0000"});
+            return;
+        }
 
-        showToast({message: "Creating request form please wait..."})
-        getRequest(selectedRequest.value, createRequestForm);
+        // Show loading message
+        showToast({message: "Creating request form please wait..."});
+        
+        // Simple direct form submission
+        const formContainer = document.getElementById("container");
+        
+        // Create the form directly
+        formContainer.innerHTML = `
+            <div class="p-4">
+                <h5 class="mb-3">Certificate of Registration <span class="mx-2 badge bg-primary">₱200.00</span></h5>
+                <p>ZXC</p>
+                
+                <h5>Purpose:</h5>
+                <select id="drpPurpose" name="purpose" class="form-select mb-3">
+                    <option value="Evaluation">Evaluation</option>
+                    <option value="Employment">Employment</option>
+                    <option value="Further Studies">Further Studies</option>
+                    <option value="Others">Others</option>
+                </select>
+                
+                <div class="alert alert-info mt-3 mb-3">
+                    <strong>Note:</strong> Additional document requirements may be requested after your request is reviewed and approved.
+                </div>
+                
+                <button id="btnSubmitRequest" type="button" class="btn btn-primary">Submit Request</button>
+            </div>
+        `;
+        
+        // Add event listener for the submit button
+        document.getElementById("btnSubmitRequest").addEventListener("click", function() {
+            submitUserRequest(selectedRequest.value);
+        });
+        
+        // Add purpose change handler
+        const purposeSelect = document.getElementById("drpPurpose");
+        if (purposeSelect) {
+            purposeSelect.addEventListener("change", function() {
+                const customContainer = document.getElementById("customPurposeContainer");
+                if (customContainer) {
+                    customContainer.remove();
+                }
+                
+                if (this.value === "Others") {
+                    const div = document.createElement("div");
+                    div.id = "customPurposeContainer";
+                    div.classList.add("mb-3");
+                    div.innerHTML = `
+                        <label for="customPurpose" class="form-label">Please specify your purpose:</label>
+                        <input type="text" id="customPurpose" class="form-control" required placeholder="Enter your purpose here">
+                    `;
+                    this.parentNode.insertBefore(div, this.nextSibling);
+                }
+            });
+        }
     });
 
     // Web services
@@ -30,131 +89,182 @@ $(document).ready(function() {
             type: 'GET',
             url: '/request/' + id + '/',
             success: function(response) {
+                // Clear any previous error messages
+                const container = document.getElementById("container");
+                if (container) {
+                    // Check if there's an error message in the container
+                    const errorMessage = container.querySelector('.alert-danger');
+                    if (errorMessage) {
+                        errorMessage.remove();
+                    }
+                }
+                
                 successCallBack(response);
             },
             error: function(xhr, errmsg, err) {
-                console.log(errmsg);
+                console.error("Error getting request:", xhr.status, errmsg);
+                
+                // Get the container
+                const container = document.getElementById("container");
+                if (!container) return;
+                
+                // Clear any existing content
+                container.innerHTML = "";
+                
+                // Default error message
+                let errorMessage = "The selected request type is no longer available. Please choose another.";
+                
+                // Try to parse the response for a more specific error
+                try {
+                    if (xhr.responseText) {
+                        const response = JSON.parse(xhr.responseText);
+                        if (response.error) {
+                            errorMessage = response.error;
+                        }
+                    }
+                } catch (e) {
+                    console.error("Error parsing error response:", e);
+                }
+                
+                // Create and display error message
+                const errorDiv = document.createElement("div");
+                errorDiv.classList.add("alert", "alert-danger", "mt-3");
+                errorDiv.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${errorMessage}`;
+                container.appendChild(errorDiv);
+                
+                // Refresh the dropdown to get the latest active requests
+                if (typeof window.refreshActiveRequests === 'function') {
+                    window.refreshActiveRequests();
+                }
+                
+                // Call error callback if provided
+                if (typeof errorCallBack === 'function') {
+                    errorCallBack(xhr, errmsg, err);
+                }
             }
         });
     }
     
     function createRequestForm(response) {
-        let data = response;
-        let requestID = data.id;
+        try {
+            let data = response;
+            let requestID = data.id;
 
-        // Debug
-        console.log(data);
+            // Debug
+            console.log("Creating form for request:", data);
 
-        const container = document.getElementById("container");
-        container.innerHTML = "";
-
-        // Fill up the form
-        const h2ForRequiredFiles = document.createElement("h5");
-        h2ForRequiredFiles.innerHTML = data.document;
-        h2ForRequiredFiles.classList.add("mb-3");
-
-        const price = document.createElement("span");
-        price.textContent = "₱" + data.price;
-        price.classList.add("mx-2", "badge", "bg-primary");
-        h2ForRequiredFiles.appendChild(price);
-        container.appendChild(h2ForRequiredFiles);
-
-        // Create textarea for description
-        const descriptionTextarea = document.createElement("p");
-        descriptionTextarea.id = "description";
-        descriptionTextarea.name = "description";
-        descriptionTextarea.textContent = data.description;
-        container.appendChild(descriptionTextarea);
-
-        // Purpose
-        const lblPurpose = document.createElement("h5");
-        lblPurpose.innerHTML = "Purpose:";
-        container.appendChild(lblPurpose);
-
-        // Purpose dropdown
-        const drpPurpose = document.createElement("select");
-        drpPurpose.classList.add("form-select"); 
-        drpPurpose.setAttribute("id", "drpPurpose")
-        drpPurpose.classList.add("mb-3") // Add margin left 3
-        drpPurpose.name = "purpose";
-
-        const purposes = data.purpose;
-        purposes.forEach((purpose) => {
-            const optPurpose = document.createElement("option");
-            optPurpose.value = purpose.description;
-            optPurpose.textContent = purpose.description;
-            drpPurpose.appendChild(optPurpose);
-        })
-
-        // Add "Others" option
-        const optOthers = document.createElement("option");
-        optOthers.value = "Others";
-        optOthers.textContent = "Others";
-        drpPurpose.appendChild(optOthers);
-        
-        // Add event listener for when purpose changes
-        drpPurpose.addEventListener("change", function() {
-            // Remove existing custom purpose input if it exists
-            const existingCustomInput = document.getElementById("customPurposeContainer");
-            if (existingCustomInput) {
-                existingCustomInput.remove();
+            const container = document.getElementById("container");
+            if (!container) {
+                console.error("Container element not found");
+                return;
             }
             
-            // If "Others" is selected, show the custom input field
-            if (this.value === "Others") {
-                const customPurposeContainer = document.createElement("div");
-                customPurposeContainer.id = "customPurposeContainer";
-                customPurposeContainer.classList.add("mb-3");
-                
-                const customPurposeLabel = document.createElement("label");
-                customPurposeLabel.textContent = "Please specify your purpose:";
-                customPurposeLabel.classList.add("form-label");
-                
-                const customPurposeInput = document.createElement("input");
-                customPurposeInput.type = "text";
-                customPurposeInput.id = "customPurpose";
-                customPurposeInput.classList.add("form-control");
-                customPurposeInput.required = true;
-                customPurposeInput.placeholder = "Enter your purpose here";
-                
-                customPurposeContainer.appendChild(customPurposeLabel);
-                customPurposeContainer.appendChild(customPurposeInput);
-                
-                // Insert after the dropdown
-                drpPurpose.parentNode.insertBefore(customPurposeContainer, drpPurpose.nextSibling);
-            }
-        });
+            container.innerHTML = "";
 
-        container.appendChild(drpPurpose);
+            // Fill up the form
+            const h2ForRequiredFiles = document.createElement("h5");
+            h2ForRequiredFiles.innerHTML = data.document;
+            h2ForRequiredFiles.classList.add("mb-3");
 
-        // Create note about additional requirements
-        const noteDiv = document.createElement("div");
-        noteDiv.classList.add("alert", "alert-info", "mt-3", "mb-3");
-        noteDiv.innerHTML = "<strong>Note:</strong> Additional document requirements may be requested after your request is reviewed and approved.";
-        container.appendChild(noteDiv);
+            const price = document.createElement("span");
+            price.textContent = "₱" + data.price;
+            price.classList.add("mx-2", "badge", "bg-primary");
+            h2ForRequiredFiles.appendChild(price);
+            container.appendChild(h2ForRequiredFiles);
 
-        // Create submit button
-        const btnSubmitRequest = document.createElement("button");
-        btnSubmitRequest.id = "btnSubmitRequest";
-        btnSubmitRequest.textContent = "Submit Request";
-        btnSubmitRequest.addEventListener("click", () => {
-            submitRequest(requestID, data);
-        })
-        btnSubmitRequest.type = "button";
-        btnSubmitRequest.classList.add("btn", "btn-primary"); // Add Bootstrap classes
-        container.appendChild(btnSubmitRequest);
+            // Create textarea for description
+            const descriptionTextarea = document.createElement("p");
+            descriptionTextarea.id = "description";
+            descriptionTextarea.name = "description";
+            descriptionTextarea.textContent = data.description;
+            container.appendChild(descriptionTextarea);
+
+            // Purpose
+            const lblPurpose = document.createElement("h5");
+            lblPurpose.innerHTML = "Purpose:";
+            container.appendChild(lblPurpose);
+
+            // Purpose dropdown
+            const drpPurpose = document.createElement("select");
+            drpPurpose.classList.add("form-select"); 
+            drpPurpose.setAttribute("id", "drpPurpose")
+            drpPurpose.classList.add("mb-3") // Add margin left 3
+            drpPurpose.name = "purpose";
+
+            const purposes = data.purpose;
+            purposes.forEach((purpose) => {
+                const optPurpose = document.createElement("option");
+                optPurpose.value = purpose.description;
+                optPurpose.textContent = purpose.description;
+                drpPurpose.appendChild(optPurpose);
+            })
+
+            // Add "Others" option
+            const optOthers = document.createElement("option");
+            optOthers.value = "Others";
+            optOthers.textContent = "Others";
+            drpPurpose.appendChild(optOthers);
+            
+            // Add event listener for when purpose changes
+            drpPurpose.addEventListener("change", function() {
+                // Remove existing custom purpose input if it exists
+                const existingCustomInput = document.getElementById("customPurposeContainer");
+                if (existingCustomInput) {
+                    existingCustomInput.remove();
+                }
+                
+                // If "Others" is selected, show the custom input field
+                if (this.value === "Others") {
+                    const customPurposeContainer = document.createElement("div");
+                    customPurposeContainer.id = "customPurposeContainer";
+                    customPurposeContainer.classList.add("mb-3");
+                    
+                    const customPurposeLabel = document.createElement("label");
+                    customPurposeLabel.textContent = "Please specify your purpose:";
+                    customPurposeLabel.classList.add("form-label");
+                    
+                    const customPurposeInput = document.createElement("input");
+                    customPurposeInput.type = "text";
+                    customPurposeInput.id = "customPurpose";
+                    customPurposeInput.classList.add("form-control");
+                    customPurposeInput.required = true;
+                    customPurposeInput.placeholder = "Enter your purpose here";
+                    
+                    customPurposeContainer.appendChild(customPurposeLabel);
+                    customPurposeContainer.appendChild(customPurposeInput);
+                    
+                    // Insert after the dropdown
+                    drpPurpose.parentNode.insertBefore(customPurposeContainer, drpPurpose.nextSibling);
+                }
+            });
+
+            container.appendChild(drpPurpose);
+
+            // Create note about additional requirements
+            const noteDiv = document.createElement("div");
+            noteDiv.classList.add("alert", "alert-info", "mt-3", "mb-3");
+            noteDiv.innerHTML = "<strong>Note:</strong> Additional document requirements may be requested after your request is reviewed and approved.";
+            container.appendChild(noteDiv);
+
+            // Create submit button
+            const btnSubmitRequest = document.createElement("button");
+            btnSubmitRequest.id = "btnSubmitRequest";
+            btnSubmitRequest.textContent = "Submit Request";
+            btnSubmitRequest.addEventListener("click", () => {
+                submitRequest(requestID, data);
+            })
+            btnSubmitRequest.type = "button";
+            btnSubmitRequest.classList.add("btn", "btn-primary"); // Add Bootstrap classes
+            container.appendChild(btnSubmitRequest);
+        } catch (e) {
+            console.error("Error creating request form:", e);
+            showToast({message: 'An error occurred. Please try again.', color: '#FF0000'});
+        }
     }
 });
 
-function submitRequest(id, request){
-    // Only validate authorization letter if provided
-    const authLetterInput = document.getElementById('authorization_letter');
-    if (authLetterInput && authLetterInput.files.length > 0) {
-        if (!validateFileSize([authLetterInput])) {
-            return;
-        }
-    }
-
+// Function to submit the user request directly
+function submitUserRequest(requestId) {
     // Validate purpose
     const purposeElement = document.querySelector("#drpPurpose");
     if (purposeElement && purposeElement.value === "Others") {
@@ -174,11 +284,14 @@ function submitRequest(id, request){
 
     // Create form data
     var formData = new FormData();
-
-    formData.append("id", id);
+    formData.append("request", requestId);
 
     // Add authorization letter if provided
+    const authLetterInput = document.getElementById('authorization_letter');
     if (authLetterInput && authLetterInput.files.length > 0) {
+        if (!validateFileSize([authLetterInput])) {
+            return;
+        }
         formData.append('authorization_letter', authLetterInput.files[0]);
     }
 
@@ -193,21 +306,20 @@ function submitRequest(id, request){
             formData.append('purpose', purposeElement.value);
         }
     } else {
-        formData.append('purpose', request?.purpose?.[0]?.description || 'General Purpose');
+        formData.append('purpose', 'General Purpose');
     }
     
-    // Get number_of_copies from the outer form
+    // Get number_of_copies
     const numberOfCopiesElement = document.querySelector("#number_of_copies");
     if (numberOfCopiesElement) {
         formData.append('number_of_copies', numberOfCopiesElement.value);
     } else {
-        formData.append('number_of_copies', '1'); // Default to 1 if not found
+        formData.append('number_of_copies', '1');
     }
     
-    // Create temp_user_info object if profile form exists
+    // Add profile info if exists
     if (document.getElementById('profile-form')) {
         const profileForm = document.getElementById('profile-form');
-        // Create temp_user_info JSON object
         const temp_user_info = {
             first_name: profileForm.querySelector('#first-name').value,
             last_name: profileForm.querySelector('#last-name').value,
@@ -220,14 +332,24 @@ function submitRequest(id, request){
             timestamp: new Date().toISOString()
         };
         
-        // Append as separate parameter
         formData.append('temp_user_info', JSON.stringify(temp_user_info));
-        
-        // Also send user_type separately for immediate update
         formData.append('user_type', profileForm.querySelector('#user-type').value);
     }
 
-    // Send AJAX POST request
+    // Show submission message
+    showToast({
+        message: 'Submitting your request...',
+        color: '#007bff'
+    });
+    
+    // Disable the submit button
+    const submitBtn = document.getElementById('btnSubmitRequest');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Submitting...';
+    }
+
+    // Send request
     $.ajax({
         type: 'POST',
         url: '/request/user/create/',
@@ -245,17 +367,29 @@ function submitRequest(id, request){
 
             if (response.status) {
                 setTimeout(function() {
-                    // Redirect to user requests page
                     window.location.href = '/request/user/';
-                }, 4000);
+                }, 2000);
+            } else {
+                // Re-enable button on error
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Submit Request';
+                }
             }
         },
         error: function(xhr, errmsg, err) {
-            console.log(errmsg);
+            console.error("Error submitting request:", err);
+            
             showToast({
                 message: 'An error occurred. Please try again.',
                 color: '#FF0000'
             });
+            
+            // Re-enable button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Submit Request';
+            }
         }
     });
 }
@@ -556,3 +690,114 @@ function validateFileInputs(files) {
     });
     return valid;
 }
+
+// Add this function at the end of the file
+function refreshActiveRequests() {
+    const requestDropdown = document.getElementById('request');
+    if (!requestDropdown) return;
+    
+    // Show loading indicator
+    requestDropdown.disabled = true;
+    
+    // Fetch active requests
+    fetch('/request/active-list/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Clear existing options
+            requestDropdown.innerHTML = '';
+            
+            // Add new options
+            if (data && data.length > 0) {
+                data.forEach(req => {
+                    const option = document.createElement('option');
+                    option.value = req.id;
+                    option.textContent = req.document;
+                    requestDropdown.appendChild(option);
+                });
+                
+                // Clear any error messages
+                const errorBanner = document.querySelector('.alert-danger');
+                if (errorBanner) {
+                    errorBanner.remove();
+                }
+            } else {
+                // No active requests
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No active request types available';
+                requestDropdown.appendChild(option);
+                
+                // Show a message to the user that no request types are available
+                const container = document.getElementById('container');
+                if (container) {
+                    container.innerHTML = '<div class="alert alert-warning">No active request types are available. Please try again later.</div>';
+                }
+            }
+            
+            // Re-enable dropdown
+            requestDropdown.disabled = false;
+        })
+        .catch(error => {
+            console.error('Error refreshing requests:', error);
+            requestDropdown.disabled = false;
+            
+            // Add an error option
+            requestDropdown.innerHTML = '';
+            const option = document.createElement('option');
+            option.value = '';
+            option.textContent = 'Error loading request types';
+            requestDropdown.appendChild(option);
+            
+            showToast({
+                message: 'Error refreshing request types. Please try again.',
+                color: '#dc3545'
+            });
+        });
+}
+
+// Add this function to show error messages
+function showErrorBanner(message) {
+    // Get the container element
+    const container = document.getElementById("container");
+    if (!container) return;
+    
+    // Clear existing content
+    container.innerHTML = "";
+    
+    // Create error banner
+    const errorDiv = document.createElement("div");
+    errorDiv.classList.add("alert", "alert-danger");
+    errorDiv.setAttribute("role", "alert");
+    
+    // Create dismiss button
+    const dismissButton = document.createElement("button");
+    dismissButton.type = "button";
+    dismissButton.classList.add("btn-close");
+    dismissButton.setAttribute("data-bs-dismiss", "alert");
+    dismissButton.setAttribute("aria-label", "Close");
+    
+    // Add error message
+    errorDiv.innerHTML = `<i class="fas fa-exclamation-circle me-2"></i> ${message} `;
+    errorDiv.appendChild(dismissButton);
+    
+    // Add to container
+    container.appendChild(errorDiv);
+    
+    // Refresh request list
+    refreshActiveRequests();
+}
+
+function clearErrorMessages() {
+    // Remove any existing error messages
+    const errorMessages = document.querySelectorAll(".alert-danger");
+    errorMessages.forEach(element => {
+        element.remove();
+    });
+}
+
+

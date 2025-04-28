@@ -154,6 +154,7 @@ class Request(models.Model):
     files_required = models.CharField(max_length=256)
     document = models.ForeignKey(Document, on_delete=models.CASCADE)
     price = models.CharField(max_length=6, default=1.00)
+    active = models.BooleanField(default=True)
 
     def __str__(self):
         return self.document.description

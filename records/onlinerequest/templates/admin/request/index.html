@@ -93,6 +93,7 @@
                                             <th class="text-start">Description</th>
                                             <th class="text-start">No. of Files Required</th>
                                             <th class="text-start">Document</th>
+                                            <th class="text-start">Status</th>
                                             <th class="text-start">Action</th>
                                         </tr>
                                         </thead>
@@ -233,6 +234,39 @@
                     });
                 }
 
+                function toggleRequestStatus(id, active) {
+                    var csrftoken = getCookie('csrftoken');
+                    
+                    // Send AJAX POST request
+                    $.ajax({
+                        type: 'POST',
+                        url: '/request/' + id + '/toggle-status/',
+                        headers: {
+                            'X-CSRFToken': csrftoken
+                        },
+                        data: {
+                            'active': active
+                        },
+                        success: function(response) {
+                            showToast({
+                                'message': response.message,
+                                'color': response.status ? '#008000' : '#FF0000'
+                            });
+
+                            if (response.status) {
+                                getRequests(); // Refresh the table
+                            }
+                        },
+                        error: function(xhr, errmsg, err) {
+                            console.log(errmsg);
+                            showToast({
+                                'message': 'Error updating status',
+                                'color': '#FF0000'
+                            });
+                        }
+                    });
+                }
+
                 function resetInputFields(){
                     let fileCount = document.querySelector("#requirements");
                     let description = document.querySelector("#description");
@@ -254,10 +288,26 @@
                             { data: 'description' },
                             { data: 'files_required' },
                             { data: 'document' },
+                            { 
+                                data: 'active',
+                                render: function(data, type, row) {
+                                    return data ? 
+                                        '<span class="badge bg-success">Active</span>' : 
+                                        '<span class="badge bg-danger">Inactive</span>';
+                                }
+                            },
                             {
-                            data: null,
+                                data: null,
                                 render: function (data, type, row) {
-                                    return '<button class="btn btn-sm btn-primary delete-btn">Delete</button>';
+                                    let actionButtons = '<div class="btn-group" role="group">';
+                                    if (data.active) {
+                                        actionButtons += '<button class="btn btn-sm btn-warning status-btn" data-id="' + row.id + '" data-status="inactive">Mark Inactive</button>';
+                                    } else {
+                                        actionButtons += '<button class="btn btn-sm btn-success status-btn" data-id="' + row.id + '" data-status="active">Mark Active</button>';
+                                    }
+                                    actionButtons += '<button class="btn btn-sm btn-danger delete-btn">Delete</button>';
+                                    actionButtons += '</div>';
+                                    return actionButtons;
                                 }
                             }
                         ],
@@ -266,14 +316,22 @@
 
                     // Unbind any previously bound event handlers
                     $('#datatable tbody').off('click', '.delete-btn');
+                    $('#datatable tbody').off('click', '.status-btn');
 
-                    // Bind the click event handler using event delegation
+                    // Bind the click event handler for delete using event delegation
                     $('#datatable tbody').on('click', '.delete-btn', function () {
                         var row = table.row($(this).parents('tr'));
                         var rowData = row.data();
                         deleteRequest(rowData.id);
                     });
-
+                    
+                    // Bind the click event handler for status toggle using event delegation
+                    $('#datatable tbody').on('click', '.status-btn', function () {
+                        var row = table.row($(this).parents('tr'));
+                        var rowData = row.data();
+                        var newStatus = $(this).data('status') === 'active';
+                        toggleRequestStatus(rowData.id, newStatus);
+                    });
                 }
 
                 // Function to get CSRF cookie value

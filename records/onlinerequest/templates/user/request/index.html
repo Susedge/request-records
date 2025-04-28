@@ -77,6 +77,11 @@
                                 document.addEventListener('DOMContentLoaded', function() {
                                     document.getElementById('request-view').classList.add('active');
                                     document.getElementById('profile-view').classList.remove('active');
+                                    
+                                    // Auto-refresh requests to ensure they're current
+                                    if (typeof refreshActiveRequests === 'function') {
+                                        refreshActiveRequests();
+                                    }
                                 });
                             </script>
                             {% endif %}
@@ -100,6 +105,9 @@
                                                     <option value="{{ request_obj.id }}">{{ request_obj.document }}</option>
                                                     {% endfor %}
                                                 </select>
+                                                <button id="refreshRequestsBtn" type="button" class="btn btn-sm btn-outline-secondary mt-2">
+                                                    <i class="fas fa-sync-alt"></i> Refresh Request Types
+                                                </button>
                                             </div>
                                             <div class="mb-3">
                                                 <label for="number_of_copies" class="form-label">Number of Copies:</label>
@@ -154,6 +162,85 @@
                 const profileView = document.getElementById('profile-view');
                 const requestView = document.getElementById('request-view');
                 
+                // Add refresh functionality for request dropdown
+                const refreshRequestsBtn = document.getElementById('refreshRequestsBtn');
+                if (refreshRequestsBtn) {
+                    refreshRequestsBtn.addEventListener('click', function() {
+                        // Show loading spinner
+                        const icon = this.querySelector('i');
+                        if (icon) {
+                            icon.classList.add('fa-spin');
+                        }
+                        this.disabled = true;
+                        
+                        // Call the refresh function
+                        refreshActiveRequests();
+                        
+                        // Re-enable the button after a short delay
+                        setTimeout(() => {
+                            this.disabled = false;
+                            if (icon) {
+                                icon.classList.remove('fa-spin');
+                            }
+                        }, 1000);
+                    });
+                }
+                
+                // Auto-refresh the requests on page load to ensure they're current
+                refreshActiveRequests();
+                
+                // Function to refresh the request dropdown with only active requests
+                function refreshActiveRequests() {
+                    const requestDropdown = document.getElementById('request');
+                    if (!requestDropdown) return;
+                    
+                    // Show loading indicator
+                    requestDropdown.disabled = true;
+                    
+                    // Fetch active requests
+                    fetch('/request/active-list/')
+                        .then(response => response.json())
+                        .then(data => {
+                            // Clear existing options
+                            requestDropdown.innerHTML = '';
+                            
+                            // Add new options
+                            if (data && data.length > 0) {
+                                data.forEach(req => {
+                                    const option = document.createElement('option');
+                                    option.value = req.id;
+                                    option.textContent = req.document;
+                                    requestDropdown.appendChild(option);
+                                });
+                            } else {
+                                // No active requests
+                                const option = document.createElement('option');
+                                option.textContent = 'No active request types available';
+                                requestDropdown.appendChild(option);
+                            }
+                            
+                            // Re-enable dropdown
+                            requestDropdown.disabled = false;
+                            
+                            // Show success message
+                            showToast({
+                                message: 'Request types refreshed successfully',
+                                color: '#28a745'
+                            });
+                        })
+                        .catch(error => {
+                            console.error('Error refreshing requests:', error);
+                            requestDropdown.disabled = false;
+                            showToast({
+                                message: 'Error refreshing request types',
+                                color: '#dc3545'
+                            });
+                        });
+                }
+                
+                // Make the function globally available
+                window.refreshActiveRequests = refreshActiveRequests;
+                
                 // Next button functionality
                 const btnNext = document.getElementById('btnNext');
                 if (btnNext) {
@@ -199,6 +286,12 @@
                     });
                     
                     return isValid;
+                }
+
+                // Clear any stuck error messages on page load
+                const container = document.getElementById("container");
+                if (container) {
+                    container.innerHTML = "";
                 }
             });
         </script>

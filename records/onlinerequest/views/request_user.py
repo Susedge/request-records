@@ -11,7 +11,7 @@ from django.core import serializers
 import os
 
 def index(request):
-      all_requests = Request.objects.all()
+      all_requests = Request.objects.filter(active=True)
       return render(request, 'user/request/index.html', {'all_requests': all_requests})
 
 from django.contrib.auth import login, authenticate
@@ -19,8 +19,41 @@ from django.contrib.auth import login, authenticate
 def create_request(request):
     if request.method == 'POST':
         try:
-            request_form = Request.objects.get(id=request.POST.get('id'))
-            status = "Processing"  # Changed from "Payment not yet settled" to "Processing"
+            user = request.user if request.user.is_authenticated else None
+            
+            # Get request data
+            post_request_id = request.POST.get('request')
+            post_purpose = request.POST.get('purpose')
+            post_purpose_other = request.POST.get('purpose_other')
+            post_number_of_copies = request.POST.get('number_of_copies', 1)
+            
+            # Debug logging
+            print(f"Creating request: ID={post_request_id}, Purpose={post_purpose}, Copies={post_number_of_copies}")
+            
+            # Validate request is active
+            try:
+                request_obj = Request.objects.get(id=post_request_id)
+                # Double-check that the request is active
+                if not request_obj.active:
+                    print(f"Request {post_request_id} is not active")
+                    return JsonResponse({
+                        'status': False,
+                        'message': 'The selected request type is no longer available. Please choose another.'
+                    })
+            except Request.DoesNotExist:
+                print(f"Request {post_request_id} not found")
+                return JsonResponse({
+                    'status': False,
+                    'message': 'The selected request type does not exist. Please choose another.'
+                })
+            
+            # Set purpose based on selection
+            if post_purpose == 'Others' and post_purpose_other:
+                final_purpose = post_purpose_other
+            else:
+                final_purpose = post_purpose
+
+            # Create a new user request
             uploads = ""
 
             # Check if user is authenticated
@@ -63,10 +96,10 @@ def create_request(request):
             # Create user request
             user_request = User_Request(
                 user=user,
-                request=request_form,
-                status=status,
-                purpose=request.POST.get("purpose"),
-                number_of_copies=int(request.POST.get("number_of_copies", 1)),
+                request=request_obj,
+                status="Processing",  # Changed from "Payment not yet settled" to "Processing"
+                purpose=final_purpose,
+                number_of_copies=int(post_number_of_copies),
                 payment_status="Approved"  # Set a default payment status
             )
         
@@ -117,6 +150,7 @@ def create_request(request):
             user_request.uploads = uploads.rstrip(',')
             user_request.save()
         
+            print(f"Successfully created request ID={user_request.id}")
             return JsonResponse({
                 'status': True, 
                 'message': 'Successfully created request! Your request is now being processed.',
@@ -124,16 +158,73 @@ def create_request(request):
                 'redirect': '/request/user/'  # Redirect to user requests page instead of payment
             })
         except Exception as e:
-            return JsonResponse({'status': False, 'message': str(e)})
+            import traceback
+            traceback.print_exc()
+            print(f"Error creating request: {str(e)}")
+            return JsonResponse({
+                'status': False,
+                'message': f'An error occurred: {str(e)}'
+            })
+            
     return JsonResponse({'status': False, 'message': 'Invalid request method'})
 
 def get_request(request, id): 
     try:
-        request_obj = Request.objects.get(id=id)
+        # Add debug logging
+        print(f"Looking up request with ID: {id}")
+        
+        # Explicitly check if the request exists first
+        try:
+            request_obj = Request.objects.get(id=id)
+        except Request.DoesNotExist:
+            print(f"Request with ID {id} not found")
+            return JsonResponse({
+                "error": "Request not found. Please refresh and try again.",
+                "active": False,
+                "code": "not_found"
+            }, status=404)
+        
+        # Now check if it's active
+        print(f"Request found, active status: {request_obj.active}")
+        if not request_obj.active:
+            return JsonResponse({
+                "error": "The selected request type is no longer available. Please choose another.",
+                "active": False,
+                "code": "inactive"
+            }, status=404)
+        
+        # If active, proceed as normal
         request_serializer = RequestSerializer(request_obj)
         return JsonResponse(request_serializer.data, safe=False)
-    except Request.DoesNotExist:
-        return JsonResponse({"error": "Request not found"}, status=404)
+    except Exception as e:
+        # Log the error for debugging
+        import traceback
+        print(f"Error in get_request: {str(e)}")
+        traceback.print_exc()
+        return JsonResponse({
+            "error": f"An unexpected error occurred: {str(e)}",
+            "active": False,
+            "code": "error"
+        }, status=500)
+
+def get_active_requests(request):
+    """Get only active requests for real-time updates"""
+    try:
+        active_requests = Request.objects.filter(active=True)
+        
+        # If there are no active requests, return an empty list but with a 200 status
+        if not active_requests.exists():
+            return JsonResponse([], safe=False)
+            
+        active_requests_json = RequestSerializer(active_requests, many=True).data
+        return JsonResponse(active_requests_json, safe=False)
+    except Exception as e:
+        # Log the error
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({
+            "error": f"Failed to retrieve active requests: {str(e)}"
+        }, status=500)
 
 import hashlib
 from ..models import generate_key_from_user, encrypt_data, decrypt_data
@@ -191,7 +282,11 @@ def display_user_requests(request):
             })
         
         # Now we know we have an authenticated user with a valid ID
-        user_requests = User_Request.objects.filter(user=request.user)
+        # Include only user requests with active request types
+        user_requests = User_Request.objects.filter(
+            user=request.user,
+            request__active=True
+        )
         
         for user_request in user_requests:
             # Decrypt requested file path if exists

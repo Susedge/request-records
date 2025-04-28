@@ -27,7 +27,10 @@ def user_requests(request):
     """Make the user's requests available to all templates if authenticated"""
     if request.user.is_authenticated:
         from onlinerequest.models import User_Request
-        user_requests = User_Request.objects.filter(user=request.user)
+        user_requests = User_Request.objects.filter(
+            user=request.user,
+            request__active=True
+        )
         return {'user_requests_global': user_requests}
     return {'user_requests_global': []}
 
