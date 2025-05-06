@@ -31,6 +31,7 @@ google-auth==2.29.0
 google-auth-httplib2==0.2.0
 google-auth-oauthlib==1.2.0
 googleapis-common-protos==1.63.0
+gunicorn
 httplib2==0.22.0
 idna==3.7
 Jinja2==3.1.6
