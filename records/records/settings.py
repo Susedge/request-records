@@ -14,7 +14,11 @@ SECRET_KEY = 'django-insecure-+l_auu##_g=um5g$tf5jpi0+2$q=zri4%!d4pq^komcmp($%37
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'request-records-lgyv.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    ]
 
 EMAIL_HOST_USER = 'chesspiecedum2@gmail.com'
 EMAIL_HOST_PASSWORD = 'btoogzanhtonxulo'
