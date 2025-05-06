@@ -27,68 +27,34 @@ $(document).ready(function() {
             return;
         }
 
+        // Get selected request text directly
+        const selectedRequestText = selectedRequest.options[selectedRequest.selectedIndex].text;
+        
         // Show loading message
-        showToast({message: "Creating request form please wait..."});
+        showToast({message: "Creating request form for " + selectedRequestText + ", please wait..."});
         
-        // Simple direct form submission
-        const formContainer = document.getElementById("container");
-        
-        // Create the form directly
-        formContainer.innerHTML = `
-            <div class="p-4">
-                <h5 class="mb-3">Certificate of Registration <span class="mx-2 badge bg-primary">₱200.00</span></h5>
-                <p>ZXC</p>
-                
-                <h5>Purpose:</h5>
-                <select id="drpPurpose" name="purpose" class="form-select mb-3">
-                    <option value="Evaluation">Evaluation</option>
-                    <option value="Employment">Employment</option>
-                    <option value="Further Studies">Further Studies</option>
-                    <option value="Others">Others</option>
-                </select>
-                
-                <div class="alert alert-info mt-3 mb-3">
-                    <strong>Note:</strong> Additional document requirements may be requested after your request is reviewed and approved.
-                </div>
-                
-                <button id="btnSubmitRequest" type="button" class="btn btn-primary">Submit Request</button>
-            </div>
-        `;
-        
-        // Add event listener for the submit button
-        document.getElementById("btnSubmitRequest").addEventListener("click", function() {
-            submitUserRequest(selectedRequest.value);
-        });
-        
-        // Add purpose change handler
-        const purposeSelect = document.getElementById("drpPurpose");
-        if (purposeSelect) {
-            purposeSelect.addEventListener("change", function() {
-                const customContainer = document.getElementById("customPurposeContainer");
-                if (customContainer) {
-                    customContainer.remove();
-                }
-                
-                if (this.value === "Others") {
-                    const div = document.createElement("div");
-                    div.id = "customPurposeContainer";
-                    div.classList.add("mb-3");
-                    div.innerHTML = `
-                        <label for="customPurpose" class="form-label">Please specify your purpose:</label>
-                        <input type="text" id="customPurpose" class="form-control" required placeholder="Enter your purpose here">
-                    `;
-                    this.parentNode.insertBefore(div, this.nextSibling);
-                }
+        try {
+            // Get the request data and create form dynamically
+            getRequest(selectedRequest.value, function(data) {
+                // Ensure we're using the data from the response
+                createRequestForm(data);
             });
+        } catch (error) {
+            console.error("Error handling request creation:", error);
+            showToast({message: "An error occurred. Please try again.", color: "#FF0000"});
         }
     });
 
     // Web services
     function getRequest(id, successCallBack, errorCallBack){
+        console.log("Fetching request details for ID:", id);
+        
         $.ajax({
             type: 'GET',
             url: '/request/' + id + '/',
             success: function(response) {
+                console.log("Server response for request ID", id, ":", response);
+                
                 // Clear any previous error messages
                 const container = document.getElementById("container");
                 if (container) {
@@ -149,10 +115,8 @@ $(document).ready(function() {
         try {
             let data = response;
             let requestID = data.id;
-
-            // Debug
-            console.log("Creating form for request:", data);
-
+            
+            // Completely clear the container first
             const container = document.getElementById("container");
             if (!container) {
                 console.error("Container element not found");
@@ -160,10 +124,13 @@ $(document).ready(function() {
             }
             
             container.innerHTML = "";
-
-            // Fill up the form
+            
+            // Extract document title from response
+            const documentTitle = data.document || "Unknown Document";
+            
+            // Create the form header
             const h2ForRequiredFiles = document.createElement("h5");
-            h2ForRequiredFiles.innerHTML = data.document;
+            h2ForRequiredFiles.textContent = documentTitle; // Use textContent for safety
             h2ForRequiredFiles.classList.add("mb-3");
 
             const price = document.createElement("span");
@@ -171,6 +138,9 @@ $(document).ready(function() {
             price.classList.add("mx-2", "badge", "bg-primary");
             h2ForRequiredFiles.appendChild(price);
             container.appendChild(h2ForRequiredFiles);
+            
+            // Log what was rendered
+            console.log("Rendered document title:", h2ForRequiredFiles.textContent);
 
             // Create textarea for description
             const descriptionTextarea = document.createElement("p");
