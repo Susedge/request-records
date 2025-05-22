@@ -1,27 +1,141 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, JsonResponse
 from django.conf import settings
 from docxtpl import DocxTemplate
 import os
-from ..models import ReportTemplate, Purpose
+from ..models import ReportTemplate, Purpose, User, Profile, Course
 from datetime import datetime
 import io
 import tempfile
 from django.utils.text import slugify
 import pythoncom
 from docx2pdf import convert  # You'll need to pip install docx2pdf
+from django.db.models import Q
 
 def admin_reports(request):
     templates = ReportTemplate.objects.all()
     return render(request, 'admin/admin_reports.html', {'templates': templates})
 
+def admin_search_student(request):
+    """Search for students by name or student number"""
+    query = request.GET.get('query', '').strip()
+    
+    if not query:
+        return JsonResponse([], safe=False)
+    
+    # Search in User model for student number or email
+    user_results = User.objects.filter(
+        Q(student_number__icontains=query) | 
+        Q(email__icontains=query)
+    )
+    
+    # Search in Profile model for names
+    profile_results = Profile.objects.filter(
+        Q(first_name__icontains=query) | 
+        Q(last_name__icontains=query) |
+        Q(middle_name__icontains=query)
+    ).select_related('user', 'course')
+    
+    # Combine the results
+    results = []
+    
+    # Add results from user search
+    for user in user_results:
+        try:
+            # Try to get the associated profile
+            profile = Profile.objects.get(user=user)
+            results.append({
+                'id': user.id,
+                'student_number': user.student_number,
+                'email': user.email,
+                'first_name': profile.first_name,
+                'middle_name': profile.middle_name,
+                'last_name': profile.last_name,
+                'contact_no': profile.contact_no,
+                'entry_year_from': profile.entry_year_from,
+                'entry_year_to': profile.entry_year_to,
+                'course_code': profile.course.code if profile.course else '',
+                'course_description': profile.course.description if profile.course else '',
+            })
+        except Profile.DoesNotExist:
+            # User without profile
+            results.append({
+                'id': user.id,
+                'student_number': user.student_number,
+                'email': user.email,
+                'first_name': '',
+                'middle_name': '',
+                'last_name': '',
+                'contact_no': '',
+                'entry_year_from': '',
+                'entry_year_to': '',
+                'course_code': '',
+                'course_description': '',
+            })
+    
+    # Add results from profile search (if not already added)
+    for profile in profile_results:
+        user_id = profile.user.id
+        # Check if this user is already in results
+        if not any(r['id'] == user_id for r in results):
+            results.append({
+                'id': user_id,
+                'student_number': profile.user.student_number,
+                'email': profile.user.email,
+                'first_name': profile.first_name,
+                'middle_name': profile.middle_name,
+                'last_name': profile.last_name,
+                'contact_no': profile.contact_no,
+                'entry_year_from': profile.entry_year_from,
+                'entry_year_to': profile.entry_year_to,
+                'course_code': profile.course.code if profile.course else '',
+                'course_description': profile.course.description if profile.course else '',
+            })
+    
+    return JsonResponse(results, safe=False)
+
 def admin_report_form(request, template_id):
     template = get_object_or_404(ReportTemplate, id=template_id)
     purposes = Purpose.objects.filter(active=True)
-    return render(request, 'admin/report_form.html', {
+    all_courses = Course.objects.all()
+    
+    # Get student data if provided
+    student_data = {}
+    student_id = request.GET.get('student_id')
+    
+    if student_id:
+        try:
+            user = User.objects.get(id=student_id)
+            try:
+                profile = Profile.objects.get(user=user)
+                student_data = {
+                    'student_number': user.student_number,
+                    'email': user.email,
+                    'first_name': profile.first_name,
+                    'middle_name': profile.middle_name,
+                    'last_name': profile.last_name,
+                    'contact_no': profile.contact_no,
+                    'entry_year_from': profile.entry_year_from,
+                    'entry_year_to': profile.entry_year_to,
+                    'course': profile.course.code if profile.course else '',
+                }
+            except Profile.DoesNotExist:
+                # Just include user data without profile
+                student_data = {
+                    'student_number': user.student_number,
+                    'email': user.email,
+                }
+        except User.DoesNotExist:
+            pass
+    
+    context = {
         'template': template,
-        'purposes': purposes
-    })
+        'purposes': purposes,
+        'all_courses': all_courses,
+        'student_data': student_data,
+    }
+    
+    return render(request, 'admin/report_form.html', context)
 
 def admin_generate_report_pdf(request, template_id):
     if request.method != 'POST':
